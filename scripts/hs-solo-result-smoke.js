@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+const fs = require('fs');
 const path = require('path');
 const { handleCallback } = require(path.join(__dirname, '..', '炉石赛事', 'callback-handler.js'));
 
@@ -26,6 +27,7 @@ function usage() {
   --force true             timeout 时忽略截止时间直接升级
   --as-side <side_a|side_b> 仅联调用，配合 HS_SOLO_RESULT_TEST_BYPASS=1 模拟双方身份
   --write-mode <api|user_identity_plan>  写表模式，默认 api
+  --plan-out <path>         当 write_mode=user_identity_plan 时，把 execution.write_plan 落到本地文件
 
 示例：
   node scripts/hs-solo-result-smoke.js submit --match MATCH-HS202603-TEST-SOLO-001 --operator ou_xxx
@@ -130,7 +132,7 @@ function buildActionPayload(step, args) {
   }
 
   if (!process.env.FEISHU_ACCESS_TOKEN) {
-    console.error('缺少 FEISHU_ACCESS_TOKEN，当前脚本无法直接联调真实飞书数据。');
+    console.error('缺少 FEISHU_ACCESS_TOKEN，当前脚本无法直接读取真实飞书数据或生成 write_plan。');
     process.exit(2);
   }
 
@@ -145,6 +147,20 @@ function buildActionPayload(step, args) {
 
   const result = await handleCallback(callback, context);
   console.log('[smoke] result   =', JSON.stringify(result, null, 2));
+
+  if (writeMode === 'user_identity_plan' && args['plan-out']) {
+    const outputPath = path.resolve(process.cwd(), args['plan-out']);
+    const payload = result?.execution
+      ? {
+          write_mode: result.execution.write_mode,
+          write_plan_version: result.execution.write_plan_version,
+          executor_contract: result.execution.executor_contract,
+          write_plan: result.execution.write_plan,
+        }
+      : { write_mode: writeMode, write_plan: [] };
+    fs.writeFileSync(outputPath, JSON.stringify(payload, null, 2));
+    console.log(`[smoke] plan saved to ${outputPath}`);
+  }
 })().catch((error) => {
   console.error('[smoke] failed:', error && error.stack ? error.stack : error);
   process.exit(1);

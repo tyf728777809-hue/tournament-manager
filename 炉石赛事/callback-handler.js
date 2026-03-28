@@ -97,11 +97,20 @@ const BITABLE_UTILS = {
   batchCreateRecords,
 };
 
+const APP_TOKEN_ALIASES = Object.fromEntries(
+  Object.entries(CONFIG.bitable.apps).map(([alias, token]) => [token, alias])
+);
+
+const TABLE_ID_ALIASES = Object.fromEntries(
+  Object.entries(TABLES).map(([alias, tableId]) => [tableId, alias])
+);
+
 let CURRENT_EXECUTION_CONTEXT = null;
 
 function beginExecutionContext(context = {}) {
   CURRENT_EXECUTION_CONTEXT = {
     writeMode: context.writeMode || 'api',
+    writePlanVersion: 'feishu-user-executor/v1',
     writePlan: [],
   };
 }
@@ -118,10 +127,42 @@ function isUserIdentityPlanMode() {
   return getExecutionContext()?.writeMode === 'user_identity_plan';
 }
 
+function resolveAppAlias(appToken) {
+  return APP_TOKEN_ALIASES[appToken] || 'unknown';
+}
+
+function resolveTableAlias(tableId) {
+  return TABLE_ID_ALIASES[tableId] || 'unknown';
+}
+
+function buildWritePlanItem(baseItem = {}) {
+  const execution = getExecutionContext();
+  const sequence = (execution?.writePlan?.length || 0) + 1;
+  const appToken = baseItem.appToken;
+  const tableId = baseItem.tableId;
+
+  return {
+    planVersion: execution?.writePlanVersion || 'feishu-user-executor/v1',
+    sequence,
+    kind: baseItem.kind,
+    appToken,
+    tableId,
+    appAlias: resolveAppAlias(appToken),
+    tableAlias: resolveTableAlias(tableId),
+    executor: {
+      tool: 'feishu_bitable_app_table_record',
+      action: baseItem.kind === 'create' ? 'create' : 'update',
+      serialize: 'as-is',
+      mode: 'serial',
+    },
+    ...baseItem,
+  };
+}
+
 function pushWritePlanItem(item) {
   const execution = getExecutionContext();
   if (!execution) return;
-  execution.writePlan.push(item);
+  execution.writePlan.push(buildWritePlanItem(item));
 }
 
 function withExecutionMeta(result) {
@@ -133,7 +174,17 @@ function withExecutionMeta(result) {
     ...result,
     execution: {
       write_mode: execution.writeMode,
+      write_plan_version: execution.writePlanVersion,
       write_plan: execution.writePlan,
+      executor_contract: {
+        tool: 'feishu_bitable_app_table_record',
+        mode: 'serial',
+        notes: [
+          '按 sequence 顺序串行执行，不要并发写同一数据表',
+          'create 使用 fields，update 使用 record_id + fields',
+          'fields 保持原样透传，不做二次字段名映射',
+        ],
+      },
     },
   };
 }

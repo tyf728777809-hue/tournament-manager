@@ -33,8 +33,9 @@
 
 ### 下一步建议
 1. 准备第二个真实 Feishu 身份样本，补一轮严格双人 `confirm / reject`
-2. 总结 `write_plan -> feishu user tool executor` 约定，避免 shell 里 token 缺失时卡住
+2. 已补 `write_plan -> feishu user tool executor` 约定；下一步可把更多链路统一到该约定
 3. 视情况补测试样本复位动作，避免旧 dispute / completed_at 干扰重复联调观测
+4. 后续可继续处理“plan 生成层”对 shell token 的依赖
 
 ---
 
