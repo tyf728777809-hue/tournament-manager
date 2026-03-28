@@ -73,6 +73,7 @@ const TABLES = {
   registrationMembers: 'tblVABsgGsLTJ3yD',
   matches: 'tblgnkqFLhTUkY4c',
   disputes: 'tblf8gkNy4SKgLJf',
+  resultReports: process.env.HS_RESULT_REPORTS_TABLE_ID || null,
 
   // 卡组与流程中心
   deckSubmissions: 'tblEEtx8k1AzYy4j',
@@ -143,6 +144,14 @@ async function handleCallback(callback, context = {}) {
         return await submitPlayerDeckForm(params, context);
       case 'record_solo_game_result':
         return await recordSoloGameResult(params, context);
+      case 'submit_match_result_report':
+        return await submitMatchResultReport(params, context);
+      case 'confirm_match_result_report':
+        return await confirmMatchResultReport(params, context);
+      case 'reject_match_result_report':
+        return await rejectMatchResultReport(params, context);
+      case 'admin_confirm_match_result_report':
+        return await adminConfirmMatchResultReport(params, context);
 
       // 争议处理
       case 'approve_ai_recommendation':
@@ -216,14 +225,14 @@ function getAllowedActions(role) {
     owner: [
       'approve_registration', 'reject_registration', 'request_registration_info',
       'approve_deck_submission', 'reject_deck_submission', 'publish_decks',
-      'record_solo_game_result',
+      'record_solo_game_result', 'admin_confirm_match_result_report',
       'approve_ai_recommendation', 'custom_ruling',
       'list_pending_registrations', 'list_pending_decks', 'list_pending_disputes',
     ],
     admin: [
       'approve_registration', 'reject_registration', 'request_registration_info',
       'approve_deck_submission', 'reject_deck_submission',
-      'record_solo_game_result',
+      'record_solo_game_result', 'admin_confirm_match_result_report',
       'list_pending_registrations', 'list_pending_decks', 'list_pending_disputes',
     ],
     judge: [
@@ -237,7 +246,13 @@ function getAllowedActions(role) {
 }
 
 function requiresAdminPermission(action) {
-  return !['submit_player_deck_form', 'submit_player_registration_form'].includes(action);
+  return ![
+    'submit_player_deck_form',
+    'submit_player_registration_form',
+    'submit_match_result_report',
+    'confirm_match_result_report',
+    'reject_match_result_report',
+  ].includes(action);
 }
 
 async function checkParticipantPermission(action, params, context = {}) {
@@ -264,6 +279,51 @@ async function checkParticipantPermission(action, params, context = {}) {
     }
   }
 
+  if (['submit_match_result_report', 'confirm_match_result_report', 'reject_match_result_report'].includes(action)) {
+    const operatorOpenId = context.operatorOpenId || params.operator_open_id;
+    const matchUid = params.match_uid || params.match_id;
+
+    if (!operatorOpenId || !matchUid) {
+      throw new Error('缺少 operatorOpenId / match_uid');
+    }
+
+    const match = await resolveRecordReference(
+      CONFIG.bitable.apps.operation,
+      TABLES.matches,
+      matchUid,
+      ['match_uid']
+    );
+
+    if (!match) {
+      throw new Error('对局不存在');
+    }
+
+    const sideContext = await getSoloMatchSideContext(match);
+    const allOpenIds = [sideContext.sideAOpenId, sideContext.sideBOpenId].filter(Boolean);
+    if (!allOpenIds.includes(operatorOpenId)) {
+      throw new Error('当前用户不是该对局参赛选手');
+    }
+
+    if (action === 'submit_match_result_report') {
+      return true;
+    }
+
+    const reportUid = params.result_report_uid || params.report_uid;
+    const report = await resolveResultReportReference(reportUid, matchUid);
+    if (!report) {
+      throw new Error('赛果上报记录不存在');
+    }
+
+    const reporterOpenId = getFieldValue(report, ['reporter_open_id']);
+    const expectedConfirmerOpenId = reporterOpenId === sideContext.sideAOpenId ? sideContext.sideBOpenId : sideContext.sideAOpenId;
+
+    if (action === 'confirm_match_result_report' || action === 'reject_match_result_report') {
+      if (operatorOpenId !== expectedConfirmerOpenId) {
+        throw new Error('仅对手方可确认或拒绝该赛果');
+      }
+    }
+  }
+
   return true;
 }
 
@@ -272,7 +332,7 @@ async function checkParticipantPermission(action, params, context = {}) {
 // ============================================
 
 async function checkState(action, params) {
-  const { registration_id, submission_id, dispute_id, match_uid, match_id } = params;
+  const { registration_id, submission_id, dispute_id, match_uid, match_id, result_report_uid, report_uid } = params;
 
   if (action.includes('registration') && action !== 'submit_player_registration_form') {
     const registration = await resolveRecordReference(
@@ -335,6 +395,27 @@ async function checkState(action, params) {
     const status = getFieldValue(match, ['match_status', 'status']) || 'ready';
     if (!['ready', 'in_game', 'result_pending_confirmation'].includes(status)) {
       throw new Error(`当前对局状态(${status})不允许录入个人赛小局结果`);
+    }
+  }
+
+  if (['submit_match_result_report', 'confirm_match_result_report', 'reject_match_result_report', 'admin_confirm_match_result_report'].includes(action)) {
+    const match = await resolveRecordReference(
+      CONFIG.bitable.apps.operation,
+      TABLES.matches,
+      match_uid || match_id,
+      ['match_uid']
+    );
+
+    if (!match) {
+      throw new Error('对局不存在');
+    }
+
+    const report = ['confirm_match_result_report', 'reject_match_result_report', 'admin_confirm_match_result_report'].includes(action)
+      ? await resolveResultReportReference(result_report_uid || report_uid, match_uid || match_id)
+      : null;
+
+    if ((action === 'confirm_match_result_report' || action === 'reject_match_result_report' || action === 'admin_confirm_match_result_report') && !report) {
+      throw new Error('赛果上报记录不存在');
     }
   }
 
@@ -884,6 +965,226 @@ async function recordSoloGameResult(params, context = {}) {
 // 争议处理
 // ============================================
 
+async function submitMatchResultReport(params, context = {}) {
+  const timestamp = Date.now();
+  const matchUid = params.match_uid || params.match_id;
+  const operatorOpenId = context.operatorOpenId || params.operator_open_id;
+
+  const match = await resolveRecordReference(
+    CONFIG.bitable.apps.operation,
+    TABLES.matches,
+    matchUid,
+    ['match_uid']
+  );
+
+  const sideContext = await getSoloMatchSideContext(match);
+  const reporterSide = operatorOpenId === sideContext.sideAOpenId ? 'side_a' : 'side_b';
+  const opponentOpenId = reporterSide === 'side_a' ? sideContext.sideBOpenId : sideContext.sideAOpenId;
+  const reportUid = params.result_report_uid || `RPT-${matchUid}-${timestamp}`;
+  const finalResultText = params.final_result_text || getFieldValue(match, ['final_result_text']) || buildSoloMatchResultText(await getOrBuildSoloConquestState(match), sideContext.sideAName, sideContext.sideBName);
+
+  await safeUpsertByUid(
+    CONFIG.bitable.apps.operation,
+    TABLES.resultReports,
+    'result_report_uid',
+    reportUid,
+    {
+      result_report_uid: reportUid,
+      tournament_uid: getFieldValue(match, ['tournament_uid']) || '',
+      match_uid: matchUid,
+      reporter_open_id: operatorOpenId,
+      reporter_side: reporterSide,
+      report_status: 'awaiting_opponent_confirmation',
+      opponent_confirmation_status: 'pending',
+      final_result_text: finalResultText,
+      final_applied_to_match: false,
+      submitted_at: timestamp,
+      internal_note: params.note || params.internal_note || '',
+    }
+  );
+
+  await safeUpdateRecord(
+    CONFIG.bitable.apps.operation,
+    TABLES.matches,
+    match.record_id,
+    {
+      result_status: 'pending_opponent_confirmation',
+      match_status: 'result_pending_confirmation',
+      latest_result_report_uid: reportUid,
+      updated_at: timestamp,
+    }
+  );
+
+  if (opponentOpenId) {
+    await sendNotification(
+      opponentOpenId,
+      `对手刚刚提交了本场赛果：\n${finalResultText}\n\n请确认：\n- confirm_match_result_report\n- reject_match_result_report`
+    ).catch(() => null);
+  }
+
+  return {
+    success: true,
+    message: '赛果已提交，等待对手确认',
+    data: {
+      result_report_uid: reportUid,
+      match_uid: matchUid,
+      final_result_text: finalResultText,
+      reporter_side: reporterSide,
+      opponent_open_id: opponentOpenId || null,
+    },
+  };
+}
+
+async function confirmMatchResultReport(params, context = {}) {
+  const timestamp = Date.now();
+  const matchUid = params.match_uid || params.match_id;
+  const reportUid = params.result_report_uid || params.report_uid;
+  const report = await resolveResultReportReference(reportUid, matchUid);
+  const match = await resolveRecordReference(CONFIG.bitable.apps.operation, TABLES.matches, matchUid, ['match_uid']);
+  const sideContext = await getSoloMatchSideContext(match);
+  const resultText = getFieldValue(report, ['final_result_text']) || getFieldValue(match, ['final_result_text']) || '';
+  const reporterSide = getFieldValue(report, ['reporter_side']);
+  const winnerSide = inferWinnerSideFromResultText(resultText, sideContext);
+
+  await safeUpdateRecord(
+    CONFIG.bitable.apps.operation,
+    TABLES.resultReports,
+    report.record_id,
+    {
+      report_status: 'opponent_confirmed',
+      opponent_confirmation_status: 'confirmed',
+      confirmer_open_id: context.operatorOpenId || params.operator_open_id || '',
+      confirmed_at: timestamp,
+      final_applied_to_match: true,
+      applied_at: timestamp,
+    }
+  );
+
+  await safeUpdateRecord(
+    CONFIG.bitable.apps.operation,
+    TABLES.matches,
+    match.record_id,
+    {
+      result_status: 'confirmed',
+      match_status: 'completed',
+      winner_side: winnerSide || getFieldValue(match, ['winner_side']) || '',
+      final_result_text: resultText,
+      completed_at: timestamp,
+      updated_at: timestamp,
+    }
+  );
+
+  await sendGroupMessageByTournament(
+    getFieldValue(match, ['tournament_uid']) || params.tournament_uid,
+    `✅ 赛果已确认\n${resultText}`,
+    BITABLE_UTILS
+  ).catch(() => null);
+
+  return {
+    success: true,
+    message: '已确认赛果并写回',
+    data: {
+      result_report_uid: getFieldValue(report, ['result_report_uid']) || reportUid,
+      match_uid: matchUid,
+      winner_side: winnerSide || null,
+      final_result_text: resultText,
+      reporter_side: reporterSide || null,
+    },
+  };
+}
+
+async function rejectMatchResultReport(params, context = {}) {
+  const timestamp = Date.now();
+  const matchUid = params.match_uid || params.match_id;
+  const reportUid = params.result_report_uid || params.report_uid;
+  const report = await resolveResultReportReference(reportUid, matchUid);
+  const match = await resolveRecordReference(CONFIG.bitable.apps.operation, TABLES.matches, matchUid, ['match_uid']);
+
+  await safeUpdateRecord(
+    CONFIG.bitable.apps.operation,
+    TABLES.resultReports,
+    report.record_id,
+    {
+      report_status: 'opponent_rejected',
+      opponent_confirmation_status: 'rejected',
+      confirmer_open_id: context.operatorOpenId || params.operator_open_id || '',
+      confirmed_at: timestamp,
+      rejection_reason: params.reject_reason || params.reason || '',
+    }
+  );
+
+  await safeUpdateRecord(
+    CONFIG.bitable.apps.operation,
+    TABLES.matches,
+    match.record_id,
+    {
+      result_status: 'disputed',
+      match_status: 'disputed',
+      updated_at: timestamp,
+    }
+  );
+
+  return {
+    success: true,
+    message: '已拒绝该赛果，比赛进入 disputed',
+    data: {
+      result_report_uid: getFieldValue(report, ['result_report_uid']) || reportUid,
+      match_uid: matchUid,
+      rejection_reason: params.reject_reason || params.reason || '',
+    },
+  };
+}
+
+async function adminConfirmMatchResultReport(params) {
+  const timestamp = Date.now();
+  const matchUid = params.match_uid || params.match_id;
+  const reportUid = params.result_report_uid || params.report_uid;
+  const report = await resolveResultReportReference(reportUid, matchUid);
+  const match = await resolveRecordReference(CONFIG.bitable.apps.operation, TABLES.matches, matchUid, ['match_uid']);
+  const sideContext = await getSoloMatchSideContext(match);
+  const resultText = getFieldValue(report, ['final_result_text']) || getFieldValue(match, ['final_result_text']) || '';
+  const winnerSide = inferWinnerSideFromResultText(resultText, sideContext);
+
+  await safeUpdateRecord(
+    CONFIG.bitable.apps.operation,
+    TABLES.resultReports,
+    report.record_id,
+    {
+      report_status: 'admin_confirmed',
+      opponent_confirmation_status: 'skipped',
+      final_applied_to_match: true,
+      applied_at: timestamp,
+      reviewed_by: params.admin_open_id || '',
+      reviewed_at: timestamp,
+    }
+  );
+
+  await safeUpdateRecord(
+    CONFIG.bitable.apps.operation,
+    TABLES.matches,
+    match.record_id,
+    {
+      result_status: 'confirmed',
+      match_status: 'completed',
+      winner_side: winnerSide || getFieldValue(match, ['winner_side']) || '',
+      final_result_text: resultText,
+      completed_at: timestamp,
+      updated_at: timestamp,
+    }
+  );
+
+  return {
+    success: true,
+    message: '管理员已确认赛果',
+    data: {
+      result_report_uid: getFieldValue(report, ['result_report_uid']) || reportUid,
+      match_uid: matchUid,
+      winner_side: winnerSide || null,
+      final_result_text: resultText,
+    },
+  };
+}
+
 async function approveAIRecommendation(params) {
   const { dispute_id, ai_recommendation, admin_open_id } = params;
   const timestamp = Date.now();
@@ -996,6 +1297,78 @@ async function listPendingDisputes(params) {
 // ============================================
 // 辅助函数
 // ============================================
+
+async function resolveResultReportReference(reportUid, matchUid) {
+  if (!TABLES.resultReports) {
+    return null;
+  }
+
+  if (reportUid) {
+    const byUid = await resolveRecordReference(
+      CONFIG.bitable.apps.operation,
+      TABLES.resultReports,
+      reportUid,
+      ['result_report_uid']
+    );
+    if (byUid) {
+      return byUid;
+    }
+  }
+
+  if (matchUid) {
+    const latest = await queryRecord(
+      CONFIG.bitable.apps.operation,
+      TABLES.resultReports,
+      {
+        filter: {
+          conjunction: 'and',
+          conditions: [
+            { field_name: 'match_uid', operator: 'is', value: [matchUid] },
+          ],
+        },
+        sort: [{ field_name: 'submitted_at', desc: true }],
+        pageSize: 1,
+      }
+    ).catch(() => []);
+
+    if (latest?.length) {
+      return latest[0];
+    }
+  }
+
+  return null;
+}
+
+async function getSoloMatchSideContext(match) {
+  const sideAUid = getFieldValue(match, ['side_a_entity_uid', 'side_a_uid', 'player_a_uid', 'side_a_player_uid']);
+  const sideBUid = getFieldValue(match, ['side_b_entity_uid', 'side_b_uid', 'player_b_uid', 'side_b_player_uid']);
+  const sideAPlayer = sideAUid ? await getEntityRecord('player', sideAUid) : null;
+  const sideBPlayer = sideBUid ? await getEntityRecord('player', sideBUid) : null;
+
+  return {
+    sideAUid,
+    sideBUid,
+    sideAOpenId: getFieldValue(sideAPlayer, ['feishu_open_id', 'user_open_id', 'open_id']) || null,
+    sideBOpenId: getFieldValue(sideBPlayer, ['feishu_open_id', 'user_open_id', 'open_id']) || null,
+    sideAName: getFieldValue(match, ['side_a_entity_name', 'side_a_name', 'player_a_name', 'side_a_display_name']) || getFieldValue(sideAPlayer, ['nickname', 'real_name']) || 'A方',
+    sideBName: getFieldValue(match, ['side_b_entity_name', 'side_b_name', 'player_b_name', 'side_b_display_name']) || getFieldValue(sideBPlayer, ['nickname', 'real_name']) || 'B方',
+  };
+}
+
+function inferWinnerSideFromResultText(resultText, sideContext) {
+  if (!resultText) {
+    return null;
+  }
+
+  if (sideContext.sideAName && resultText.includes(sideContext.sideAName)) {
+    return 'side_a';
+  }
+  if (sideContext.sideBName && resultText.includes(sideContext.sideBName)) {
+    return 'side_b';
+  }
+
+  return null;
+}
 
 async function getOrBuildSoloConquestState(match) {
   const stored = getFieldValue(match, ['conquest_state_json', 'solo_conquest_state_json', 'state_json']);
@@ -1509,6 +1882,10 @@ module.exports = {
   submitPlayerRegistrationForm,
   submitPlayerDeckForm,
   recordSoloGameResult,
+  submitMatchResultReport,
+  confirmMatchResultReport,
+  rejectMatchResultReport,
+  adminConfirmMatchResultReport,
   approveAIRecommendation,
   customRuling,
   listPendingRegistrations,
