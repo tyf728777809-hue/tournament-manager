@@ -1,0 +1,5 @@
+{
+  "type": "url_verification",
+  "token": "test-verification-token",
+  "challenge": "challenge-from-local-test"
+}

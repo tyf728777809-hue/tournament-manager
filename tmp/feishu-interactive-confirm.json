@@ -1,0 +1,21 @@
+{
+  "schema": "2.0",
+  "header": {
+    "event_id": "evt-local-confirm-001",
+    "event_type": "card.action.trigger"
+  },
+  "event": {
+    "operator": {
+      "open_id": "ou_83c1ede5ca9e47affd4b337781a6e741"
+    },
+    "action": {
+      "value": {
+        "action": "confirm_match_result_report",
+        "match_uid": "MATCH-HS202603-TEST-SOLO-001",
+        "result_report_uid": "RPT-MATCH-HS202603-TEST-SOLO-001-1774725587831",
+        "reporter_side": "side_a"
+      }
+    }
+  },
+  "token": "test-verification-token"
+}

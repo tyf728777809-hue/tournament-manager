@@ -14,6 +14,8 @@ const { handleCallback } = require('./callback-handler');
 
 const PORT = Number(process.env.FEISHU_CALLBACK_PORT || 8787);
 const PATHNAME = process.env.FEISHU_CALLBACK_PATH || '/feishu/callback';
+const DRY_RUN = String(process.env.FEISHU_CALLBACK_DRY_RUN || '').toLowerCase() === '1'
+  || String(process.env.FEISHU_CALLBACK_DRY_RUN || '').toLowerCase() === 'true';
 
 function sendJson(res, statusCode, data) {
   const body = JSON.stringify(data);
@@ -46,6 +48,26 @@ function buildSuccessResponse(result) {
   };
 }
 
+function buildDryRunResponse(decoded) {
+  return {
+    code: 0,
+    msg: 'ok',
+    dry_run: true,
+    data: {
+      callback: decoded.callback,
+      context: {
+        operatorOpenId: decoded.context?.operatorOpenId || '',
+        requestId: decoded.context?.requestId || '',
+        rawEventType: decoded.context?.rawEventType || '',
+      },
+    },
+    toast: {
+      type: 'info',
+      content: 'dry-run: 已解析回调但未执行写表/通知',
+    },
+  };
+}
+
 function buildErrorResponse(error) {
   return {
     code: 0,
@@ -73,6 +95,10 @@ const server = http.createServer(async (req, res) => {
 
     if (decoded.kind === 'url_verification') {
       return sendJson(res, 200, decoded.response);
+    }
+
+    if (DRY_RUN) {
+      return sendJson(res, 200, buildDryRunResponse(decoded));
     }
 
     const result = await handleCallback(decoded.callback, decoded.context);
