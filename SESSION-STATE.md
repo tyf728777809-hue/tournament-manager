@@ -7,35 +7,40 @@
 
 ## Current Context
 
-当前正在继续推进「炉石赛事自动化系统」个人赛赛果确认链路联调；本轮目标是接着提交 `d24892a` 往下补个人赛赛果 `confirm` 分支的真实联调。
+当前已完成「炉石赛事自动化系统」个人赛赛果链路的本轮真实样本收口，核心目标从“补 confirm 分支真实联调”推进到“整条赛果链路关键分支完成真实闭环并形成可复用操作文档”。
 
-### 本轮已完成
-- `result_reports` / `match_games` / `match_class_states` 真表已确认存在并已对接
-- 对手确认已升级为正式卡片按钮
-- 已补 `escalate_match_result_report_timeout`
-- 已补 `opponent_rejected / timeout -> disputes` 自动衔接
-- 已新增 smoke 脚本：`scripts/hs-solo-result-smoke.js`
-- 已新增联调文档：
-  - `炉石赛事/个人赛赛果确认升级与真实表对接说明-v1.md`
-  - `炉石赛事/个人赛赛果联调清单-v1.md`
-- 已补一轮个人赛 `confirm` 分支真实联调：
-  - submit 赛果记录：`RPT-MATCH-HS202603-TEST-SOLO-001-1774717992036`
-  - confirm 后 `result_reports.report_status = opponent_confirmed`
-  - confirm 后 `matches.match_status = completed`
-  - confirm 后 `matches.result_status = confirmed`
+### 本轮最终结果
+- 已完成严格双人真实联调三条关键闭环：
+  1. `submit -> confirm`
+  2. `submit -> reject`
+  3. `submit -> timeout -> admin-confirm`
+- 对应真实样本证据：
+  - confirm：`RPT-MATCH-HS202603-TEST-SOLO-001-1774725587831`
+  - reject：`RPT-MATCH-HS202603-TEST-SOLO-001-1774725798799` / `DSP-MATCH-HS202603-TEST-SOLO-001-1774725831343`
+  - timeout -> admin-confirm：`RPT-MATCH-HS202603-TEST-SOLO-001-1774726420380` / `DSP-MATCH-HS202603-TEST-SOLO-001-1774726458350`
+- 第二真实身份样本已补齐并通过一致性改绑：
+  - 小甲：`ou_914e6141a81eb6da2602875aee631269`
+  - 小乙：`ou_83c1ede5ca9e47affd4b337781a6e741`
+- 已确认一个关键执行注意点：若 `admin-confirm` 需要同步收口 dispute，则统一入口输入的 `report.json` 必须使用 timeout/reject 之后的**最新快照**，并带上 `linked_dispute_uid`；否则只会产出 2 条 write_plan（缺少 `update disputes`）。
 
-### 当前关键 blocker
-- 个人赛测试样本中：
-  - 小甲 `solo_test_001`
-  - 小乙 `solo_test_002`
-  当前都绑定到了同一个 `feishu_open_id`：`ou_914e6141a81eb6da2602875aee631269`
-- 因此 `confirm / reject` 的“真实双人身份校验”仍未被独立样本验证；本轮只是把真实表写入结果补通。
+### 本轮已完成的文档收口
+- 更新《`炉石赛事/个人赛赛果联调清单-v1.md`》为最终联调结果版本
+- 更新《`炉石赛事/个人赛测试链路演练摘要-v1.md`》补齐管理员收口分支结果
+- 新增《`炉石赛事/个人赛赛果链路最终收口摘要-v1.md`》汇总本轮最终结论、证据和后续建议
 
-### 下一步建议
-1. 准备第二个真实 Feishu 身份样本，补一轮严格双人 `confirm / reject`
-2. 个人赛赛果链路核心分支（`submit / confirm / reject / timeout / admin-confirm`）已验证可通过 `context.prefetched` 在无 shell token 情况下产出 `write_plan`
-3. 已补统一入口脚本、prefetched 组装器、五条端到端模板（含 submit），以及《个人赛赛果链路操作总入口-v1》；并已新增《个人赛赛果真实联调-checklist-v1》与《个人赛第二真实Feishu-open_id样本方案-v1》
-4. 第二个真实 Feishu open_id 样本已完成准备：已将 `solo_test_002 / P-HS202603TESTSOLO-OPP001` 的 `players.feishu_open_id`、`registrations.submitted_by_open_id`、`deckSubmissions.submitted_by_open_id` 同步改为 `ou_83c1ede5ca9e47affd4b337781a6e741`（史振东），并回读确认成功；`MATCH-HS202603-TEST-SOLO-001` 也已完成最小复位。随后已完成严格双人真实联调的两轮闭环：`submit -> confirm` 与 `submit -> reject` 都已跑通，确认第二真实 open_id 可作为对手方分别完成赛果确认与拒绝，并能正确产出 dispute。下一步可视需要继续补 `timeout -> admin-confirm` 的真实样本收口，或整理摘要/提交文档。
+### 当前结论
+个人赛赛果链路的关键真实样本分支已经完成收口：
+- 对手确认分支已通过真实双人身份校验
+- 对手拒绝 -> dispute 升级分支已通过真实双人身份校验
+- timeout -> admin-confirm -> dispute resolved 管理员收口分支已通过真实写表验证
+
+换言之，当前个人赛赛果链路已不再停留在离线推演、单人受控绕过或局部字段校正阶段，而是已经形成了可复跑、可证据化、可文档化的真实闭环样本。
+
+### 建议下一步
+1. 将主注意力从“赛果链路补洞”切到更高优先级的个人赛后续主链路 / 线上接入事项
+2. 若后续还要继续大段施工，建议先基于本轮收口点切一个新会话，避免主会话上下文继续膨胀
+3. 如需再测管理员拒绝/改判等细分分支，可直接复用本轮沉淀的模板、统一入口与最终摘要作为操作底稿
+
 ---
 
 _此文件每次会话更新，关键信息会定期整理到 MEMORY.md_
