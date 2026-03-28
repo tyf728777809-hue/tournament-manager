@@ -1,13 +1,13 @@
 # SESSION-STATE.md - Active Working Memory
 
 **Status:** ACTIVE
-**Last Updated:** 2026-03-28
+**Last Updated:** 2026-03-29
 
 ---
 
 ## Current Context
 
-当前正在继续推进「炉石赛事自动化系统」个人赛赛果确认链路联调。
+当前正在继续推进「炉石赛事自动化系统」个人赛赛果确认链路联调；本轮目标是接着提交 `d24892a` 往下补个人赛赛果 `confirm` 分支的真实联调。
 
 ### 本轮已完成
 - `result_reports` / `match_games` / `match_class_states` 真表已确认存在并已对接
@@ -18,20 +18,23 @@
 - 已新增联调文档：
   - `炉石赛事/个人赛赛果确认升级与真实表对接说明-v1.md`
   - `炉石赛事/个人赛赛果联调清单-v1.md`
+- 已补一轮个人赛 `confirm` 分支真实联调：
+  - submit 赛果记录：`RPT-MATCH-HS202603-TEST-SOLO-001-1774717992036`
+  - confirm 后 `result_reports.report_status = opponent_confirmed`
+  - confirm 后 `matches.match_status = completed`
+  - confirm 后 `matches.result_status = confirmed`
 
 ### 当前关键 blocker
 - 个人赛测试样本中：
   - 小甲 `solo_test_001`
   - 小乙 `solo_test_002`
   当前都绑定到了同一个 `feishu_open_id`：`ou_914e6141a81eb6da2602875aee631269`
-- 这会影响“对手确认 / 拒绝”这类基于 open_id 区分双方身份的真实联调。
+- 因此 `confirm / reject` 的“真实双人身份校验”仍未被独立样本验证；本轮只是把真实表写入结果补通。
 
 ### 下一步建议
-1. 先决定联调策略：
-   - A. 继续用当前样本，先跑 submit / timeout / admin-confirm（单人可测）
-   - B. 新建第二个真实 open_id 对手样本，再跑 confirm / reject（双人可测）
-2. 若走 A，可立即用 smoke 脚本跑通非双人步骤
-3. 若走 B，需要先准备第二个真实 Feishu 身份样本
+1. 准备第二个真实 Feishu 身份样本，补一轮严格双人 `confirm / reject`
+2. 总结 `write_plan -> feishu user tool executor` 约定，避免 shell 里 token 缺失时卡住
+3. 视情况补测试样本复位动作，避免旧 dispute / completed_at 干扰重复联调观测
 
 ---
 
