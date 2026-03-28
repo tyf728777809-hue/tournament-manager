@@ -80,8 +80,8 @@ const TABLES = {
   announcements: 'tbloMMt0CwQsTDpM',
   bpRounds: 'tblgfufpxvYjKNte',
   bpActions: 'tbl9nSeXjV8mvHVr',
-  matchGames: null,
-  matchClassStates: null,
+  matchGames: process.env.HS_MATCH_GAMES_TABLE_ID || null,
+  matchClassStates: process.env.HS_MATCH_CLASS_STATES_TABLE_ID || null,
 };
 
 const BITABLE_UTILS = {
@@ -1083,13 +1083,20 @@ async function writeSoloGameProjection(match, nextState, timestamp) {
     return;
   }
 
+  const winnerSide = lastGame.winnerSide;
+  const loserSide = winnerSide === 'side_a' ? 'side_b' : 'side_a';
+  const sideALockedClass = loserSide === 'side_a' ? lastGame.sideAClass : '';
+  const sideBLockedClass = loserSide === 'side_b' ? lastGame.sideBClass : '';
+
   const projectionPayload = {
     match_game_uid: `MG-${matchUid}-${String(lastGame.gameNo).padStart(2, '0')}`,
     match_uid: matchUid,
+    tournament_uid: getFieldValue(match, ['tournament_uid']) || '',
     game_number: lastGame.gameNo,
     side_a_class: lastGame.sideAClass,
     side_b_class: lastGame.sideBClass,
-    winner_side: lastGame.winnerSide,
+    winner_side: winnerSide,
+    loser_side: loserSide,
     winner_class: lastGame.winnerClass,
     loser_class: lastGame.loserClass,
     result_status: 'done',
@@ -1097,19 +1104,36 @@ async function writeSoloGameProjection(match, nextState, timestamp) {
     internal_note: lastGame.note || '',
   };
 
-  await safeCreateRecord(CONFIG.bitable.apps.operation, TABLES.matchGames, projectionPayload);
+  await safeUpsertByUid(
+    CONFIG.bitable.apps.operation,
+    TABLES.matchGames,
+    'match_game_uid',
+    projectionPayload.match_game_uid,
+    projectionPayload
+  );
 
-  await safeCreateRecord(CONFIG.bitable.apps.operation, TABLES.matchClassStates, {
-    match_class_state_uid: `MCS-${matchUid}-${String(lastGame.gameNo).padStart(2, '0')}`,
-    match_uid: matchUid,
-    game_number: lastGame.gameNo,
-    side_a_available_classes: JSON.stringify(nextState.sideA.availableClasses),
-    side_b_available_classes: JSON.stringify(nextState.sideB.availableClasses),
-    side_a_conquered_classes: JSON.stringify(nextState.sideA.conqueredClasses),
-    side_b_conquered_classes: JSON.stringify(nextState.sideB.conqueredClasses),
-    winner_side: lastGame.winnerSide,
-    locked_at: timestamp,
-  });
+  await safeUpsertByUid(
+    CONFIG.bitable.apps.operation,
+    TABLES.matchClassStates,
+    'match_class_state_uid',
+    `MCS-${matchUid}-${String(lastGame.gameNo).padStart(2, '0')}`,
+    {
+      match_class_state_uid: `MCS-${matchUid}-${String(lastGame.gameNo).padStart(2, '0')}`,
+      match_uid: matchUid,
+      tournament_uid: getFieldValue(match, ['tournament_uid']) || '',
+      game_number: lastGame.gameNo,
+      side_a_locked_class: sideALockedClass,
+      side_b_locked_class: sideBLockedClass,
+      side_a_available_classes: JSON.stringify(nextState.sideA.availableClasses),
+      side_b_available_classes: JSON.stringify(nextState.sideB.availableClasses),
+      side_a_conquered_classes: JSON.stringify(nextState.sideA.conqueredClasses),
+      side_b_conquered_classes: JSON.stringify(nextState.sideB.conqueredClasses),
+      side_a_wins: nextState.sideA.wins,
+      side_b_wins: nextState.sideB.wins,
+      winner_side: winnerSide,
+      locked_at: timestamp,
+    }
+  );
 }
 
 async function getEntityNotifyOpenIds(entityType, entityUid) {
@@ -1163,6 +1187,33 @@ async function safeCreateRecord(appToken, tableId, fields) {
     return await createRecord(appToken, tableId, fields);
   } catch (error) {
     console.warn('[safeCreateRecord] skipped:', error.message);
+    return null;
+  }
+}
+
+async function safeUpsertByUid(appToken, tableId, uidField, uidValue, fields) {
+  try {
+    if (!appToken || !tableId || !uidField || !uidValue) {
+      return null;
+    }
+
+    const existing = await queryRecord(appToken, tableId, {
+      filter: {
+        conjunction: 'and',
+        conditions: [
+          { field_name: uidField, operator: 'is', value: [uidValue] },
+        ],
+      },
+      pageSize: 1,
+    });
+
+    if (existing?.length) {
+      return await updateRecord(appToken, tableId, existing[0].record_id, fields);
+    }
+
+    return await createRecord(appToken, tableId, fields);
+  } catch (error) {
+    console.warn('[safeUpsertByUid] skipped:', error.message);
     return null;
   }
 }
