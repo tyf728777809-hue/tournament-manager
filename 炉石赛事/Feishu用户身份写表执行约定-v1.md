@@ -275,8 +275,21 @@ node scripts/render-feishu-write-plan.js --in tmp/confirm-plan.json
 
 已离线验证：
 - 在 **无 shell token** 情况下
-- 向 `confirm_match_result_report` 提供 `prefetched.match + report + players + sideContext`
-- 可以成功产出 `execution.write_plan`
+- 只要向 callback 提供最小 `prefetched` 上下文，就可以成功产出 `execution.write_plan`
+
+当前已通过离线验证的 action：
+- `submit_match_result_report`
+- `confirm_match_result_report`
+- `reject_match_result_report`
+- `escalate_match_result_report_timeout`
+- `admin_confirm_match_result_report`
+
+对应的 write_plan 形态：
+- `submit` → `create resultReports` + `update matches`
+- `confirm` → `update resultReports` + `update matches`
+- `reject` → `create disputes` + `update resultReports` + `update matches`
+- `timeout` → `create disputes` + `update resultReports` + `update matches`
+- `admin-confirm` → `update resultReports` + `update matches` + `update disputes`
 
 这说明个人赛赛果链路已经具备“当前会话先读表 → callback 生成计划 → 当前会话执行计划”的基础。
 

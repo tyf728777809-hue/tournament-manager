@@ -387,6 +387,19 @@ async function checkPermission(operatorOpenId, tournamentUid, action) {
     return true;
   }
 
+  const prefetchedAdmins = getPrefetchedRecordCandidates('tournamentAdmins')
+    .filter((admin) => getFieldValue(admin, ['tournament_uid']) === tournamentUid)
+    .filter((admin) => getFieldValue(admin, ['user_open_id', 'open_id']) === operatorOpenId)
+    .filter((admin) => (getFieldValue(admin, ['status']) || 'active') === 'active');
+  if (prefetchedAdmins.length) {
+    const role = getFieldValue(prefetchedAdmins[0], ['role']) || 'admin';
+    const allowedActions = getAllowedActions(role);
+    if (!allowedActions.includes(action)) {
+      throw new Error(`当前角色(${role})无权执行此操作`);
+    }
+    return true;
+  }
+
   const admins = await queryRecord(
     CONFIG.bitable.apps.operation,
     TABLES.tournamentAdmins,
@@ -1751,6 +1764,11 @@ async function createDisputeFromRejectedResultReport(match, report, {
     return { dispute_uid: existingDisputeUid };
   }
 
+  const prefetchedDispute = findPrefetchedRecord('disputes', (record) => getFieldValue(record, ['related_result_report_uid']) === (getFieldValue(report, ['result_report_uid']) || ''));
+  if (prefetchedDispute) {
+    return { dispute_uid: getFieldValue(prefetchedDispute, ['dispute_uid']) || prefetchedDispute.record_id };
+  }
+
   const existingDispute = await queryRecord(
     CONFIG.bitable.apps.operation,
     TABLES.disputes,
@@ -1827,6 +1845,13 @@ async function createDisputeFromRejectedResultReport(match, report, {
 async function listTournamentAdminOpenIds(tournamentUid) {
   if (!tournamentUid) {
     return [];
+  }
+
+  const prefetchedAdmins = getPrefetchedRecordCandidates('tournamentAdmins')
+    .filter((admin) => getFieldValue(admin, ['tournament_uid']) === tournamentUid)
+    .filter((admin) => (getFieldValue(admin, ['status']) || 'active') === 'active');
+  if (prefetchedAdmins.length) {
+    return uniq((prefetchedAdmins || []).map(admin => getFieldValue(admin, ['user_open_id', 'open_id'])));
   }
 
   const admins = await queryRecord(
@@ -2197,29 +2222,21 @@ async function safeUpsertByUid(appToken, tableId, uidField, uidValue, fields) {
       return null;
     }
 
-    const existing = await queryRecord(appToken, tableId, {
-      filter: {
-        conjunction: 'and',
-        conditions: [
-          { field_name: uidField, operator: 'is', value: [uidValue] },
-        ],
-      },
-      pageSize: 1,
-    });
-
-    if (existing?.length) {
+    const tableAlias = resolveTableAlias(tableId);
+    const prefetchedExisting = findPrefetchedRecord(tableAlias, (record) => getFieldValue(record, [uidField]) === uidValue);
+    if (prefetchedExisting) {
       if (isUserIdentityPlanMode()) {
         pushWritePlanItem({
           kind: 'update',
           appToken,
           tableId,
-          recordId: existing[0].record_id,
+          recordId: prefetchedExisting.record_id,
           fields,
           upsertBy: { uidField, uidValue },
         });
-        return { planned: true, kind: 'update', record_id: existing[0].record_id, fields };
+        return { planned: true, kind: 'update', record_id: prefetchedExisting.record_id, fields };
       }
-      return await updateRecord(appToken, tableId, existing[0].record_id, fields);
+      return await updateRecord(appToken, tableId, prefetchedExisting.record_id, fields);
     }
 
     if (isUserIdentityPlanMode()) {
@@ -2231,6 +2248,20 @@ async function safeUpsertByUid(appToken, tableId, uidField, uidValue, fields) {
         upsertBy: { uidField, uidValue },
       });
       return { planned: true, kind: 'create', fields };
+    }
+
+    const existing = await queryRecord(appToken, tableId, {
+      filter: {
+        conjunction: 'and',
+        conditions: [
+          { field_name: uidField, operator: 'is', value: [uidValue] },
+        ],
+      },
+      pageSize: 1,
+    });
+
+    if (existing?.length) {
+      return await updateRecord(appToken, tableId, existing[0].record_id, fields);
     }
 
     return await createRecord(appToken, tableId, fields);

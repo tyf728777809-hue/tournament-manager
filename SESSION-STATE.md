@@ -33,8 +33,8 @@
 
 ### 下一步建议
 1. 准备第二个真实 Feishu 身份样本，补一轮严格双人 `confirm / reject`
-2. 已补 `write_plan -> feishu user tool executor` 约定；并已验证 `confirm` 分支可通过 `context.prefetched` 在无 shell token 情况下产出 `write_plan`
-3. 继续把更多链路的最小读依赖迁到当前会话工具侧
+2. 个人赛赛果链路核心分支（`submit / confirm / reject / timeout / admin-confirm`）已验证可通过 `context.prefetched` 在无 shell token 情况下产出 `write_plan`
+3. 继续把更多链路的最小读依赖迁到当前会话工具侧，并补统一入口
 4. 视情况补测试样本复位动作，避免旧 dispute / completed_at 干扰重复联调观测
 
 ---
