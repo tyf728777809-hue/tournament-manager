@@ -123,6 +123,8 @@ async function handleCallback(callback, context = {}) {
         return await rejectDeckSubmission(params);
       case 'publish_decks':
         return await publishDecks(params);
+      case 'submit_player_registration_form':
+        return await submitPlayerRegistrationForm(params, context);
       case 'submit_player_deck_form':
         return await submitPlayerDeckForm(params, context);
 
@@ -216,25 +218,31 @@ function getAllowedActions(role) {
 }
 
 function requiresAdminPermission(action) {
-  return !['submit_player_deck_form'].includes(action);
+  return !['submit_player_deck_form', 'submit_player_registration_form'].includes(action);
 }
 
 async function checkParticipantPermission(action, params, context = {}) {
-  if (action !== 'submit_player_deck_form') {
+  if (action === 'submit_player_registration_form') {
+    const operatorOpenId = context.operatorOpenId || params.operator_open_id;
+    if (!operatorOpenId) {
+      throw new Error('缺少 operatorOpenId');
+    }
     return true;
   }
 
-  const operatorOpenId = context.operatorOpenId || params.operator_open_id;
-  if (!operatorOpenId) {
-    throw new Error('缺少 operatorOpenId');
-  }
+  if (action === 'submit_player_deck_form') {
+    const operatorOpenId = context.operatorOpenId || params.operator_open_id;
+    if (!operatorOpenId) {
+      throw new Error('缺少 operatorOpenId');
+    }
 
-  const playerUid = params.player_uid || params.entity_uid;
-  const player = await getEntityRecord('player', playerUid);
-  const playerOpenId = getFieldValue(player, ['feishu_open_id', 'user_open_id', 'open_id']);
+    const playerUid = params.player_uid || params.entity_uid;
+    const player = await getEntityRecord('player', playerUid);
+    const playerOpenId = getFieldValue(player, ['feishu_open_id', 'user_open_id', 'open_id']);
 
-  if (!playerOpenId || playerOpenId !== operatorOpenId) {
-    throw new Error('当前用户无权提交该选手卡组');
+    if (!playerOpenId || playerOpenId !== operatorOpenId) {
+      throw new Error('当前用户无权提交该选手卡组');
+    }
   }
 
   return true;
@@ -247,7 +255,7 @@ async function checkParticipantPermission(action, params, context = {}) {
 async function checkState(action, params) {
   const { registration_id, submission_id, dispute_id } = params;
 
-  if (action.includes('registration')) {
+  if (action.includes('registration') && action !== 'submit_player_registration_form') {
     const registration = await resolveRecordReference(
       CONFIG.bitable.apps.operation,
       TABLES.registrations,
@@ -399,6 +407,92 @@ async function requestRegistrationInfo(params) {
   await notifyMany(notifyOpenIds, `💬 管理员要求补充资料\n${request_note || ''}`.trim());
 
   return { success: true, message: '已发送补充资料请求' };
+}
+
+async function submitPlayerRegistrationForm(params, context = {}) {
+  const timestamp = Date.now();
+  const tournamentUid = params.tournament_uid;
+  const operatorOpenId = context.operatorOpenId || params.operator_open_id;
+
+  if (!tournamentUid || !operatorOpenId) {
+    throw new Error('缺少 tournament_uid / operatorOpenId');
+  }
+
+  validatePlayerRegistrationPayload(params);
+
+  const tournament = await resolveRecordReference(
+    CONFIG.bitable.apps.operation,
+    TABLES.tournaments,
+    tournamentUid,
+    ['tournament_uid']
+  );
+
+  validateRegistrationWindow(tournament, timestamp);
+
+  const player = await resolveOrCreatePlayerByOpenId(operatorOpenId, params, timestamp);
+  const playerUid = getFieldValue(player, ['player_uid']) || params.player_uid || buildPlayerUid(tournamentUid, operatorOpenId);
+
+  if (!getFieldValue(player, ['player_uid'])) {
+    await safeUpdateRecord(
+      CONFIG.bitable.apps.basic,
+      TABLES.players,
+      player.record_id,
+      { player_uid: playerUid }
+    );
+  }
+
+  const existingRegistration = await queryRecord(
+    CONFIG.bitable.apps.operation,
+    TABLES.registrations,
+    {
+      filter: {
+        conjunction: 'and',
+        conditions: [
+          { field_name: 'tournament_uid', operator: 'is', value: [tournamentUid] },
+          { field_name: 'entity_type', operator: 'is', value: ['player'] },
+          { field_name: 'entity_uid', operator: 'is', value: [playerUid] },
+        ],
+      },
+      pageSize: 1,
+    }
+  );
+
+  if (existingRegistration?.length) {
+    throw new Error('你已经提交过本赛事报名');
+  }
+
+  const registrationUid = buildRegistrationUid(tournamentUid, playerUid);
+  const createdRegistration = await createRecord(
+    CONFIG.bitable.apps.operation,
+    TABLES.registrations,
+    {
+      registration_uid: registrationUid,
+      tournament_uid: tournamentUid,
+      entity_type: 'player',
+      entity_uid: playerUid,
+      player_uid: playerUid,
+      registration_status: 'submitted',
+      review_status: 'pending_review',
+      snapshot_slogan: params.snapshot_slogan || params.slogan || '',
+      submitted_at: timestamp,
+      source_type: params.source_type || 'manual_form',
+    }
+  );
+
+  await notifyMany(
+    [operatorOpenId],
+    '✅ 已收到你的个人赛报名信息。\n当前状态：已提交，等待审核。\n下一步：审核通过后，你将收到卡组提交入口。\n如需补充资料，我会继续私聊你。'
+  );
+
+  return {
+    success: true,
+    message: '个人赛报名已提交',
+    data: {
+      player_uid: playerUid,
+      registration_uid: registrationUid,
+      registration_record_id: createdRegistration?.record?.record_id || createdRegistration?.record_id,
+    },
+  };
 }
 
 // ============================================
@@ -966,6 +1060,88 @@ function normalizePlayerDeckPayload(params = {}) {
   return normalized;
 }
 
+function validatePlayerRegistrationPayload(params = {}) {
+  if (!String(params.real_name || '').trim()) {
+    throw new Error('请填写真实姓名');
+  }
+  if (!String(params.player_id || '').trim()) {
+    throw new Error('请填写选手ID');
+  }
+  if (!String(params.nickname || '').trim()) {
+    throw new Error('请填写昵称/展示名');
+  }
+  if (!String(params.bnet_id || params.battle_net_id || '').trim()) {
+    throw new Error('请填写战网ID');
+  }
+}
+
+function validateRegistrationWindow(tournament, nowTs) {
+  const deadline = getFieldValue(tournament, ['registration_deadline', 'signup_deadline', 'apply_deadline']);
+  if (typeof deadline === 'number' && deadline > 0 && nowTs > deadline) {
+    throw new Error('当前赛事暂不可报名');
+  }
+}
+
+async function resolveOrCreatePlayerByOpenId(openId, params, timestamp) {
+  const existing = await queryRecord(
+    CONFIG.bitable.apps.basic,
+    TABLES.players,
+    {
+      filter: {
+        conjunction: 'and',
+        conditions: [
+          { field_name: 'feishu_open_id', operator: 'is', value: [openId] },
+        ],
+      },
+      pageSize: 1,
+    }
+  );
+
+  const playerFields = {
+    real_name: String(params.real_name || '').trim(),
+    player_id: String(params.player_id || '').trim(),
+    nickname: String(params.nickname || '').trim(),
+    bnet_id: String(params.bnet_id || params.battle_net_id || '').trim(),
+    feishu_open_id: openId,
+    honors: params.honors || '',
+    portrait_image: params.portrait_image || null,
+    updated_at: timestamp,
+  };
+
+  if (existing?.length) {
+    await updateRecord(
+      CONFIG.bitable.apps.basic,
+      TABLES.players,
+      existing[0].record_id,
+      playerFields
+    );
+    return await getRecord(CONFIG.bitable.apps.basic, TABLES.players, existing[0].record_id);
+  }
+
+  const playerUid = params.player_uid || buildPlayerUid(params.tournament_uid, openId);
+  const created = await createRecord(
+    CONFIG.bitable.apps.basic,
+    TABLES.players,
+    {
+      player_uid: playerUid,
+      ...playerFields,
+      verified_status: 'pending',
+      created_at: timestamp,
+    }
+  );
+
+  return created?.record || created;
+}
+
+function buildPlayerUid(tournamentUid, openId) {
+  const suffix = String(openId || '').replace(/[^A-Za-z0-9]/g, '').slice(-8) || 'PLAYER';
+  return `P-${String(tournamentUid || 'HS').replace(/[^A-Za-z0-9]/g, '').slice(0, 20)}-${suffix}`;
+}
+
+function buildRegistrationUid(tournamentUid, playerUid) {
+  return `REG-${String(tournamentUid || 'HS').replace(/[^A-Za-z0-9]/g, '')}-${String(playerUid || 'PLAYER').replace(/[^A-Za-z0-9]/g, '')}`;
+}
+
 function validateSoloDecks(decks = []) {
   if (decks.length !== 4) {
     throw new Error('请提交4套卡组');
@@ -1034,6 +1210,7 @@ module.exports = {
   approveDeckSubmission,
   rejectDeckSubmission,
   publishDecks,
+  submitPlayerRegistrationForm,
   submitPlayerDeckForm,
   approveAIRecommendation,
   customRuling,
