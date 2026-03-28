@@ -1,0 +1,50 @@
+{
+  "tournament_uid": "HS202603-TEST-SOLO",
+  "player_profile": {
+    "operator_open_id": "ou_914e6141a81eb6da2602875aee631269",
+    "real_name": "测试选手甲",
+    "player_id": "solo_test_001",
+    "nickname": "小甲",
+    "bnet_id": "SoloTest#1234",
+    "honors": "测试样本选手",
+    "snapshot_slogan": "为了联调而战"
+  },
+  "registration_callback": {
+    "action": "submit_player_registration_form",
+    "tournament_uid": "HS202603-TEST-SOLO",
+    "real_name": "测试选手甲",
+    "player_id": "solo_test_001",
+    "nickname": "小甲",
+    "bnet_id": "SoloTest#1234",
+    "honors": "测试样本选手",
+    "snapshot_slogan": "为了联调而战"
+  },
+  "deck_callback": {
+    "action": "submit_player_deck_form",
+    "tournament_uid": "HS202603-TEST-SOLO",
+    "registration_uid": "REG-HS202603TESTSOLO-PHS202603TESTSOLO1269269",
+    "player_uid": "P-HS202603TESTSOLO-1269269",
+    "decks": [
+      {
+        "class_name": "法师",
+        "deck_name": "法强法",
+        "deck_code": "AAECAf0EAtH4Bf74Bg7gwwXyxAWmwwXQ+AXR+AXxgAbWmAbymwbzmwbOnAbtnAaznAa0pwa2pwaFvwaGvwbw5gYAAA=="
+      },
+      {
+        "class_name": "战士",
+        "deck_name": "防战",
+        "deck_code": "AAECAQcGltQEzZIFpfYF2IEGx6QG+skGDJzUBPDNBerQBaH7BZD7BaT7BZyeBoegBo6gBpKzBqS7BrT4BgAA"
+      },
+      {
+        "class_name": "猎人",
+        "deck_name": "快猎",
+        "deck_code": "AAECAR8Er54G5KQG/qUGyPYGDbqSBvGlBvKlBv+lBpKmBoHmBoTmBq3rBqHrBqvsBq7vBpCeBuelBgAA"
+      },
+      {
+        "class_name": "牧师",
+        "deck_name": "控制牧",
+        "deck_code": "AAECAa0GCM/2Bcj/BcekBvvoBqrqBuHrBrP4Bs6BBwvwnwS7xwWi6QXt9wXjgAbGnAbxnAbqqAbrqAbOwAaL1wYAAA=="
+      }
+    ]
+  }
+}
