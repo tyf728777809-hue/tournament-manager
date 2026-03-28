@@ -33,9 +33,9 @@
 
 ### 下一步建议
 1. 准备第二个真实 Feishu 身份样本，补一轮严格双人 `confirm / reject`
-2. 已补 `write_plan -> feishu user tool executor` 约定；下一步可把更多链路统一到该约定
-3. 视情况补测试样本复位动作，避免旧 dispute / completed_at 干扰重复联调观测
-4. 后续可继续处理“plan 生成层”对 shell token 的依赖
+2. 已补 `write_plan -> feishu user tool executor` 约定；并已验证 `confirm` 分支可通过 `context.prefetched` 在无 shell token 情况下产出 `write_plan`
+3. 继续把更多链路的最小读依赖迁到当前会话工具侧
+4. 视情况补测试样本复位动作，避免旧 dispute / completed_at 干扰重复联调观测
 
 ---
 

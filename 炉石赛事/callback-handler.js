@@ -112,6 +112,7 @@ function beginExecutionContext(context = {}) {
     writeMode: context.writeMode || 'api',
     writePlanVersion: 'feishu-user-executor/v1',
     writePlan: [],
+    prefetched: context.prefetched || {},
   };
 }
 
@@ -121,6 +122,10 @@ function endExecutionContext() {
 
 function getExecutionContext() {
   return CURRENT_EXECUTION_CONTEXT;
+}
+
+function getPrefetchedContext() {
+  return getExecutionContext()?.prefetched || {};
 }
 
 function isUserIdentityPlanMode() {
@@ -133,6 +138,44 @@ function resolveAppAlias(appToken) {
 
 function resolveTableAlias(tableId) {
   return TABLE_ID_ALIASES[tableId] || 'unknown';
+}
+
+function normalizeMaybeRecord(record) {
+  if (!record) return null;
+  if (record.record_id || record.fields) {
+    return record;
+  }
+  return null;
+}
+
+function getPrefetchedRecordCandidates(key) {
+  const prefetched = getPrefetchedContext();
+  const candidateKeys = uniq([
+    key,
+    key === 'matches' ? 'match' : '',
+    key === 'resultReports' ? 'report' : '',
+    key === 'players' ? 'player' : '',
+    key === 'teams' ? 'team' : '',
+  ]);
+
+  const results = [];
+  for (const candidateKey of candidateKeys) {
+    const value = prefetched?.[candidateKey];
+    if (!value) continue;
+    if (Array.isArray(value)) {
+      results.push(...value.map(normalizeMaybeRecord).filter(Boolean));
+      continue;
+    }
+    const normalized = normalizeMaybeRecord(value);
+    if (normalized) results.push(normalized);
+  }
+
+  return results;
+}
+
+function findPrefetchedRecord(key, predicate) {
+  const candidates = getPrefetchedRecordCandidates(key);
+  return candidates.find(predicate) || null;
 }
 
 function buildWritePlanItem(baseItem = {}) {
@@ -274,7 +317,7 @@ async function handleCallback(callback, context = {}) {
     return withExecutionMeta(result);
   } catch (error) {
     console.error(`[Callback Error] ${action}:`, error);
-    await notifyAdmin(`处理失败: ${action}\n错误: ${error.message}`, CONFIG.admin.openId);
+    await notifyAdmin(`处理失败: ${action}\n错误: ${error.message}`, CONFIG.admin.openId).catch(() => null);
     throw error;
   } finally {
     endExecutionContext();
@@ -288,6 +331,19 @@ async function handleCallback(callback, context = {}) {
 async function resolveTournamentUidForAction(action, params = {}) {
   if (params.tournament_uid) {
     return params.tournament_uid;
+  }
+
+  const prefetched = getPrefetchedContext();
+  const prefetchedMatch = normalizeMaybeRecord(prefetched.match);
+  if (prefetchedMatch) {
+    const tournamentUid = getFieldValue(prefetchedMatch, ['tournament_uid']);
+    if (tournamentUid) return tournamentUid;
+  }
+
+  const prefetchedReport = normalizeMaybeRecord(prefetched.report);
+  if (prefetchedReport) {
+    const tournamentUid = getFieldValue(prefetchedReport, ['tournament_uid']);
+    if (tournamentUid) return tournamentUid;
   }
 
   const matchUid = params.match_uid || params.match_id;
@@ -318,6 +374,17 @@ async function checkPermission(operatorOpenId, tournamentUid, action) {
 
   if (!operatorOpenId) {
     throw new Error('缺少 operatorOpenId');
+  }
+
+  const prefetched = getPrefetchedContext();
+  const prefetchedPermission = prefetched.permission || prefetched.permissions || null;
+  if (prefetchedPermission && prefetchedPermission.adminAllowed) {
+    const role = prefetchedPermission.role || 'admin';
+    const allowedActions = getAllowedActions(role);
+    if (!allowedActions.includes(action)) {
+      throw new Error(`当前角色(${role})无权执行此操作`);
+    }
+    return true;
   }
 
   const admins = await queryRecord(
@@ -1615,6 +1682,20 @@ async function resolveResultReportReference(reportUid, matchUid) {
     return null;
   }
 
+  const prefetchedByUid = reportUid
+    ? findPrefetchedRecord('report', (record) => getFieldValue(record, ['result_report_uid']) === reportUid || record.record_id === reportUid)
+    : null;
+  if (prefetchedByUid) {
+    return prefetchedByUid;
+  }
+
+  const prefetchedByMatch = matchUid
+    ? findPrefetchedRecord('report', (record) => getFieldValue(record, ['match_uid']) === matchUid)
+    : null;
+  if (prefetchedByMatch) {
+    return prefetchedByMatch;
+  }
+
   if (reportUid) {
     const byUid = await resolveRecordReference(
       CONFIG.bitable.apps.operation,
@@ -1823,6 +1904,11 @@ function formatTimestampText(timestamp) {
 }
 
 async function getSoloMatchSideContext(match) {
+  const prefetched = getPrefetchedContext();
+  if (prefetched.sideContext) {
+    return prefetched.sideContext;
+  }
+
   const sideAUid = getFieldValue(match, ['side_a_entity_uid', 'side_a_uid', 'player_a_uid', 'side_a_player_uid']);
   const sideBUid = getFieldValue(match, ['side_b_entity_uid', 'side_b_uid', 'player_b_uid', 'side_b_player_uid']);
   const sideAPlayer = sideAUid ? await getEntityRecord('player', sideAUid) : null;
@@ -2224,6 +2310,15 @@ async function resolveRecordReference(appToken, tableId, idOrUid, candidateField
     return null;
   }
 
+  const tableAlias = resolveTableAlias(tableId);
+  const prefetchedDirect = findPrefetchedRecord(tableAlias, (record) => {
+    if (record.record_id === idOrUid) return true;
+    return candidateFields.some((fieldName) => getFieldValue(record, [fieldName]) === idOrUid);
+  });
+  if (prefetchedDirect) {
+    return prefetchedDirect;
+  }
+
   try {
     const record = await getRecord(appToken, tableId, idOrUid);
     if (record) {
@@ -2254,6 +2349,8 @@ async function resolveRecordReference(appToken, tableId, idOrUid, candidateField
 
 async function getEntityRecord(entityType, entityUid) {
   if (entityType === 'team') {
+    const prefetchedTeam = findPrefetchedRecord('teams', (record) => getFieldValue(record, ['team_uid']) === entityUid || record.record_id === entityUid);
+    if (prefetchedTeam) return prefetchedTeam;
     return await resolveRecordReference(
       CONFIG.bitable.apps.basic,
       TABLES.teams,
@@ -2263,6 +2360,8 @@ async function getEntityRecord(entityType, entityUid) {
   }
 
   if (entityType === 'player') {
+    const prefetchedPlayer = findPrefetchedRecord('players', (record) => getFieldValue(record, ['player_uid']) === entityUid || record.record_id === entityUid);
+    if (prefetchedPlayer) return prefetchedPlayer;
     return await resolveRecordReference(
       CONFIG.bitable.apps.basic,
       TABLES.players,

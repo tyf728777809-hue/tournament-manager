@@ -223,17 +223,72 @@ node scripts/render-feishu-write-plan.js --in tmp/confirm-plan.json
 
 ---
 
-## 8. 当前限制
+## 8. 继续去掉 plan 生成层的 token 依赖
 
-这份约定解决的是**执行层**问题，不自动解决**plan 生成层**问题。
+为了让 shell 侧不再负责读取真实飞书表，`callback-handler.js` 已补 `context.prefetched` 支持。
+
+当前会话可以先用飞书用户工具读取好最小上下文，再把这些数据喂给 `handleCallback()`：
+
+```json
+{
+  "operatorOpenId": "ou_xxx",
+  "writeMode": "user_identity_plan",
+  "prefetched": {
+    "match": {"record_id": "rec...", "fields": {...}},
+    "report": {"record_id": "rec...", "fields": {...}},
+    "players": [
+      {"record_id": "rec...", "fields": {"player_uid": "P-A", "feishu_open_id": "ou_a"}},
+      {"record_id": "rec...", "fields": {"player_uid": "P-B", "feishu_open_id": "ou_b"}}
+    ],
+    "sideContext": {
+      "sideAUid": "P-A",
+      "sideBUid": "P-B",
+      "sideAOpenId": "ou_a",
+      "sideBOpenId": "ou_b",
+      "sideAName": "小甲",
+      "sideBName": "小乙"
+    },
+    "permission": {
+      "adminAllowed": true,
+      "role": "admin"
+    }
+  }
+}
+```
+
+### 当前已覆盖的 prefetched 读取点
+
+- `resolveTournamentUidForAction()`
+  - 可直接读取 `prefetched.match / prefetched.report`
+- `checkPermission()`
+  - 可直接读取 `prefetched.permission`
+- `resolveRecordReference()`
+  - 会优先命中 `prefetched.match`、`prefetched.report`、`prefetched.players`、`prefetched.teams`
+- `resolveResultReportReference()`
+  - 会优先命中 `prefetched.report`
+- `getEntityRecord()`
+  - 会优先命中 `prefetched.players / prefetched.teams`
+- `getSoloMatchSideContext()`
+  - 会优先命中 `prefetched.sideContext`
+
+### 当前验证结果
+
+已离线验证：
+- 在 **无 shell token** 情况下
+- 向 `confirm_match_result_report` 提供 `prefetched.match + report + players + sideContext`
+- 可以成功产出 `execution.write_plan`
+
+这说明个人赛赛果链路已经具备“当前会话先读表 → callback 生成计划 → 当前会话执行计划”的基础。
+
+## 9. 当前限制
+
+目前还不是所有 action 都完全 prefetched 化。
 
 也就是说：
-- 如果 shell 没有 `FEISHU_ACCESS_TOKEN`
-- 而 callback 逻辑又需要先读真实飞书表做权限/状态判断
+- 个人赛赛果链路已经开始支持最小读上下文注入
+- 但报名、卡组、争议等其他链路，仍有一些读操作直接走 Bitable API
 
-那么 shell 侧仍然可能无法直接产出 `write_plan`。
+因此后续可继续做两个方向：
 
-因此下一步可继续做两个方向：
-
-1. 把“生成计划所需的最小读依赖”迁到当前会话工具侧
-2. 或者补一个“callback 结果 -> 当前会话接管执行”的更顺手入口
+1. 继续把更多 action 的最小读依赖迁到 `context.prefetched`
+2. 补一个“当前会话读取真实表并直接调用 callback”的统一入口
