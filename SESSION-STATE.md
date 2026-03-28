@@ -34,8 +34,8 @@
 ### 下一步建议
 1. 准备第二个真实 Feishu 身份样本，补一轮严格双人 `confirm / reject`
 2. 个人赛赛果链路核心分支（`submit / confirm / reject / timeout / admin-confirm`）已验证可通过 `context.prefetched` 在无 shell token 情况下产出 `write_plan`
-3. 已补统一入口脚本、prefetched 组装器、四条端到端模板，以及《个人赛赛果链路操作总入口-v1》；下一步可继续补真实联调 checklist 与 submit 模板
-4. 视情况补测试样本复位动作，避免旧 dispute / completed_at 干扰重复联调观测
+3. 已补统一入口脚本、prefetched 组装器、五条端到端模板（含 submit），以及《个人赛赛果链路操作总入口-v1》；下一步可继续补真实联调 checklist
+4. 视情况补测试样本复位动作，避免旧 dispute / completed_at / latest_result_report_uid` 干扰重复联调观测
 
 ---
 

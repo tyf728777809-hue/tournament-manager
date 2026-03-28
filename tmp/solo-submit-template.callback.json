@@ -1,0 +1,6 @@
+{
+  "action": "submit_match_result_report",
+  "match_uid": "MATCH-HS202603-TEST-SOLO-001",
+  "result_report_uid": "RPT-MATCH-HS202603-TEST-SOLO-001-NEW",
+  "final_result_text": "小甲 3:1 小乙"
+}
