@@ -10,7 +10,31 @@
 // 1. 基础配置
 // ============================================
 
-const axios = require('axios');
+async function httpRequest({ method = 'GET', url, headers = {}, params, data }) {
+  const requestUrl = new URL(url);
+
+  if (params) {
+    const searchParams = params instanceof URLSearchParams
+      ? params
+      : new URLSearchParams(Object.entries(params).flatMap(([key, value]) => {
+          if (value === undefined || value === null) return [];
+          return [[key, typeof value === 'string' ? value : JSON.stringify(value)]];
+        }));
+
+    for (const [key, value] of searchParams.entries()) {
+      requestUrl.searchParams.append(key, value);
+    }
+  }
+
+  const response = await fetch(requestUrl, {
+    method,
+    headers,
+    body: data ? JSON.stringify(data) : undefined,
+  });
+
+  const json = await response.json();
+  return { data: json, status: response.status };
+}
 
 const CONFIG = {
   baseUrl: 'https://open.feishu.cn/open-apis/bitable/v1',
@@ -53,7 +77,7 @@ async function queryRecord(appToken, tableId, options = {}) {
     params.append('sort', JSON.stringify(sort));
   }
   
-  const response = await axios({
+  const response = await httpRequest({
     method: 'GET',
     url: `${CONFIG.baseUrl}/apps/${appToken}/tables/${tableId}/records`,
     headers: {
@@ -79,7 +103,7 @@ async function queryRecord(appToken, tableId, options = {}) {
 async function getRecord(appToken, tableId, recordId) {
   const token = await CONFIG.getAccessToken();
   
-  const response = await axios({
+  const response = await httpRequest({
     method: 'GET',
     url: `${CONFIG.baseUrl}/apps/${appToken}/tables/${tableId}/records/${recordId}`,
     headers: {
@@ -91,7 +115,7 @@ async function getRecord(appToken, tableId, recordId) {
     throw new Error(`Get record failed: ${response.data.msg}`);
   }
   
-  return response.data.data;
+  return response.data.data.record || response.data.data;
 }
 
 // ============================================
@@ -109,7 +133,7 @@ async function getRecord(appToken, tableId, recordId) {
 async function updateRecord(appToken, tableId, recordId, fields) {
   const token = await CONFIG.getAccessToken();
   
-  const response = await axios({
+  const response = await httpRequest({
     method: 'PUT',
     url: `${CONFIG.baseUrl}/apps/${appToken}/tables/${tableId}/records/${recordId}`,
     headers: {
@@ -145,7 +169,7 @@ async function batchUpdateRecords(appToken, tableId, records) {
   for (let i = 0; i < records.length; i += batchSize) {
     const batch = records.slice(i, i + batchSize);
     
-    const response = await axios({
+    const response = await httpRequest({
       method: 'PUT',
       url: `${CONFIG.baseUrl}/apps/${appToken}/tables/${tableId}/records/batch_update`,
       headers: {
@@ -180,7 +204,7 @@ async function batchUpdateRecords(appToken, tableId, records) {
 async function createRecord(appToken, tableId, fields) {
   const token = await CONFIG.getAccessToken();
   
-  const response = await axios({
+  const response = await httpRequest({
     method: 'POST',
     url: `${CONFIG.baseUrl}/apps/${appToken}/tables/${tableId}/records`,
     headers: {
@@ -216,7 +240,7 @@ async function batchCreateRecords(appToken, tableId, records) {
   for (let i = 0; i < records.length; i += batchSize) {
     const batch = records.slice(i, i + batchSize);
     
-    const response = await axios({
+    const response = await httpRequest({
       method: 'POST',
       url: `${CONFIG.baseUrl}/apps/${appToken}/tables/${tableId}/records/batch_create`,
       headers: {

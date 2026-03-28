@@ -1,12 +1,36 @@
 /**
  * 炉石赛事自动化系统 - 消息通知工具函数
- * 版本: v1.0 | 日期: 2026-03-28
- * 
+ * 版本: v1.1 | 日期: 2026-03-28
+ *
  * 本文件实现消息通知相关的工具函数
  * 基于飞书开放平台 IM API
  */
 
-const axios = require('axios');
+async function httpRequest({ method = 'GET', url, headers = {}, params, data }) {
+  const requestUrl = new URL(url);
+
+  if (params) {
+    const searchParams = params instanceof URLSearchParams
+      ? params
+      : new URLSearchParams(Object.entries(params).flatMap(([key, value]) => {
+          if (value === undefined || value === null) return [];
+          return [[key, typeof value === 'string' ? value : JSON.stringify(value)]];
+        }));
+
+    for (const [key, value] of searchParams.entries()) {
+      requestUrl.searchParams.append(key, value);
+    }
+  }
+
+  const response = await fetch(requestUrl, {
+    method,
+    headers,
+    body: data ? JSON.stringify(data) : undefined,
+  });
+
+  const json = await response.json();
+  return { data: json, status: response.status };
+}
 
 // ============================================
 // 1. 基础配置
@@ -14,37 +38,29 @@ const axios = require('axios');
 
 const CONFIG = {
   baseUrl: 'https://open.feishu.cn/open-apis',
-  getAccessToken: async () => {
-    return process.env.FEISHU_ACCESS_TOKEN;
-  },
+  defaultAdminOpenId: process.env.FEISHU_ADMIN_OPEN_ID || 'ou_914e6141a81eb6da2602875aee631269',
+  getAccessToken: async () => process.env.FEISHU_ACCESS_TOKEN,
 };
 
 // ============================================
-// 2. 私聊通知
+// 2. 基础发送能力
 // ============================================
 
-/**
- * 发送私聊通知给指定用户
- * @param {string} openId - 用户 open_id
- * @param {string} message - 消息内容
- * @param {string} msgType - 消息类型：text / interactive
- * @returns {Promise<Object>} 发送结果
- */
 async function sendNotification(openId, message, msgType = 'text') {
   const token = await CONFIG.getAccessToken();
-  
+
   let content;
   if (msgType === 'text') {
     content = { text: message };
   } else {
-    content = message; // 假设已经是卡片 JSON
+    content = message;
   }
-  
-  const response = await axios({
+
+  const response = await httpRequest({
     method: 'POST',
     url: `${CONFIG.baseUrl}/im/v1/messages`,
     headers: {
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     params: {
@@ -56,26 +72,20 @@ async function sendNotification(openId, message, msgType = 'text') {
       content: JSON.stringify(content),
     },
   });
-  
+
   if (response.data.code !== 0) {
     throw new Error(`Send notification failed: ${response.data.msg}`);
   }
-  
+
   return {
     success: true,
     messageId: response.data.data.message_id,
   };
 }
 
-/**
- * 批量发送私聊通知
- * @param {Array<string>} openIds - 用户 open_id 列表
- * @param {string} message - 消息内容
- * @returns {Promise<Array>} 发送结果列表
- */
 async function batchSendNotification(openIds, message) {
   const results = [];
-  
+
   for (const openId of openIds) {
     try {
       const result = await sendNotification(openId, message);
@@ -84,36 +94,25 @@ async function batchSendNotification(openIds, message) {
       results.push({ openId, success: false, error: error.message });
     }
   }
-  
+
   return results;
 }
 
-// ============================================
-// 3. 群消息
-// ============================================
-
-/**
- * 发送群消息
- * @param {string} chatId - 群 chat_id
- * @param {string} message - 消息内容
- * @param {string} msgType - 消息类型：text / interactive
- * @returns {Promise<Object>} 发送结果
- */
 async function sendGroupMessage(chatId, message, msgType = 'text') {
   const token = await CONFIG.getAccessToken();
-  
+
   let content;
   if (msgType === 'text') {
     content = { text: message };
   } else {
     content = message;
   }
-  
-  const response = await axios({
+
+  const response = await httpRequest({
     method: 'POST',
     url: `${CONFIG.baseUrl}/im/v1/messages`,
     headers: {
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     params: {
@@ -125,101 +124,122 @@ async function sendGroupMessage(chatId, message, msgType = 'text') {
       content: JSON.stringify(content),
     },
   });
-  
+
   if (response.data.code !== 0) {
     throw new Error(`Send group message failed: ${response.data.msg}`);
   }
-  
+
   return {
     success: true,
     messageId: response.data.data.message_id,
   };
 }
 
-/**
- * 根据 tournament_uid 获取群 ID 并发送消息
- * @param {string} tournamentUid - 赛事 UID
- * @param {string} message - 消息内容
- * @param {Object} bitableUtils - 多维表格工具函数
- */
 async function sendGroupMessageByTournament(tournamentUid, message, bitableUtils) {
-  // 查询赛事配置获取群 ID
-  const { CONFIG: BITABLE_CONFIG, TABLES } = require('./bitable-api-utils');
-  
-  const tournament = await bitableUtils.getRecord(
-    BITABLE_CONFIG.apps.operation,
-    TABLES.tournaments,
-    tournamentUid
+  const tournament = await resolveRecordReference(
+    bitableUtils.CONFIG.apps.operation,
+    bitableUtils.TABLES.tournaments,
+    tournamentUid,
+    ['tournament_uid'],
+    bitableUtils
   );
-  
-  if (!tournament || !tournament.fields.player_group_chat_id) {
+
+  const chatId = getFieldValue(tournament, [
+    'player_group_chat_id',
+    'group_chat_id',
+    'tournament_group_chat_id',
+  ]);
+
+  if (!chatId) {
     throw new Error('赛事未配置群聊');
   }
-  
-  const chatId = tournament.fields.player_group_chat_id;
+
   return await sendGroupMessage(chatId, message);
 }
 
 // ============================================
-// 4. 卡片消息
+// 3. 卡片消息
 // ============================================
 
-/**
- * 发送交互卡片消息（私聊）
- * @param {string} openId - 用户 open_id
- * @param {Object} card - 卡片 JSON 对象
- * @returns {Promise<Object>} 发送结果
- */
 async function sendCardMessage(openId, card) {
   return await sendNotification(openId, card, 'interactive');
 }
 
-/**
- * 发送交互卡片消息（群聊）
- * @param {string} chatId - 群 chat_id
- * @param {Object} card - 卡片 JSON 对象
- * @returns {Promise<Object>} 发送结果
- */
 async function sendGroupCardMessage(chatId, card) {
   return await sendGroupMessage(chatId, card, 'interactive');
 }
 
 // ============================================
-// 5. 特定场景通知
+// 4. 特定场景通知
 // ============================================
 
-/**
- * 推送卡组提交入口
- * @param {string} entityUid - 实体 UID（战队/个人）
- * @param {string} tournamentUid - 赛事 UID
- * @param {Object} bitableUtils - 多维表格工具
- */
-async function pushDeckSubmissionEntry(entityUid, tournamentUid, bitableUtils) {
-  const { CONFIG: BITABLE_CONFIG, TABLES, getRecord } = bitableUtils;
-  
-  // 查询实体信息
-  const entity = await getRecord(
-    BITABLE_CONFIG.apps.basic,
-    TABLES.teams,
-    entityUid
+async function pushDeckSubmissionEntry(entityType, entityUid, tournamentUid, bitableUtils) {
+  const tournament = await resolveRecordReference(
+    bitableUtils.CONFIG.apps.operation,
+    bitableUtils.TABLES.tournaments,
+    tournamentUid,
+    ['tournament_uid'],
+    bitableUtils
   );
-  
-  if (!entity) {
-    throw new Error('实体不存在');
+  const tournamentName = getFieldValue(tournament, ['tournament_name', 'name']) || '当前赛事';
+
+  if (entityType === 'player') {
+    const player = await resolvePlayerRecord(entityUid, bitableUtils);
+    const playerOpenId = getFieldValue(player, ['feishu_open_id', 'user_open_id', 'open_id']);
+    if (!playerOpenId) {
+      throw new Error('选手未配置 feishu_open_id');
+    }
+
+    const nickname = getFieldValue(player, ['nickname', 'real_name', 'player_name']) || '选手';
+    const card = {
+      config: { wide_screen_mode: true },
+      header: {
+        template: 'orange',
+        title: {
+          tag: 'plain_text',
+          content: '🎴 个人赛卡组提交入口',
+        },
+      },
+      elements: [
+        {
+          tag: 'div',
+          text: {
+            tag: 'lark_md',
+            content: `**赛事：** ${tournamentName}\n**选手：** ${nickname}\n**要求：** 提交 4 套不同职业卡组\n**说明：** 审核通过前默认保密`,
+          },
+        },
+        {
+          tag: 'action',
+          actions: [
+            {
+              tag: 'button',
+              type: 'primary',
+              text: { tag: 'plain_text', content: '提交 4 套卡组' },
+              value: {
+                action: 'open_player_deck_form',
+                tournament_uid: tournamentUid,
+                entity_type: 'player',
+                entity_uid: entityUid,
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    return await sendCardMessage(playerOpenId, card);
   }
-  
-  // 查询队长信息
-  const captain = await getRecord(
-    BITABLE_CONFIG.apps.basic,
-    TABLES.players,
-    entity.fields.captain_player_uid
-  );
-  
-  if (!captain) {
-    throw new Error('队长信息不存在');
+
+  const team = await resolveTeamRecord(entityUid, bitableUtils);
+  const captainUid = getFieldValue(team, ['captain_player_uid', 'captain_uid']);
+  const captain = await resolvePlayerRecord(captainUid, bitableUtils);
+  const captainOpenId = getFieldValue(captain, ['feishu_open_id', 'user_open_id', 'open_id']);
+
+  if (!captainOpenId) {
+    throw new Error('队长未配置 feishu_open_id');
   }
-  
-  // 构建卡片
+
+  const teamName = getFieldValue(team, ['team_name', 'name']) || '战队';
   const card = {
     config: { wide_screen_mode: true },
     header: {
@@ -234,7 +254,7 @@ async function pushDeckSubmissionEntry(entityUid, tournamentUid, bitableUtils) {
         tag: 'div',
         text: {
           tag: 'lark_md',
-          content: `**战队：** ${entity.fields.team_name}\n**要求：** 11套卡组，覆盖11职业\n**说明：** 请由队长统一提交`,
+          content: `**赛事：** ${tournamentName}\n**战队：** ${teamName}\n**要求：** 11 套卡组，覆盖 11 职业\n**说明：** 请由队长统一提交`,
         },
       },
       {
@@ -243,10 +263,11 @@ async function pushDeckSubmissionEntry(entityUid, tournamentUid, bitableUtils) {
           {
             tag: 'button',
             type: 'primary',
-            text: { tag: 'plain_text', content: '提交11套卡组' },
+            text: { tag: 'plain_text', content: '提交 11 套卡组' },
             value: {
               action: 'open_team_deck_form',
               tournament_uid: tournamentUid,
+              entity_type: 'team',
               entity_uid: entityUid,
             },
           },
@@ -254,42 +275,37 @@ async function pushDeckSubmissionEntry(entityUid, tournamentUid, bitableUtils) {
       },
     ],
   };
-  
-  // 发送给队长
-  return await sendCardMessage(captain.fields.feishu_open_id, card);
+
+  return await sendCardMessage(captainOpenId, card);
 }
 
-/**
- * 生成公示确认通知
- * @param {string} submissionId - 卡组提交 ID
- * @param {string} tournamentUid - 赛事 UID
- * @param {Object} bitableUtils - 多维表格工具
- */
-async function generatePublishConfirmation(submissionId, tournamentUid, bitableUtils) {
-  const { CONFIG: BITABLE_CONFIG, TABLES, getRecord, queryRecord } = bitableUtils;
-  
-  // 查询卡组提交信息
-  const submission = await getRecord(
-    BITABLE_CONFIG.apps.deck,
-    TABLES.deckSubmissions,
-    submissionId
+async function generatePublishConfirmation(submissionId, tournamentUid, bitableUtils, adminOpenId = CONFIG.defaultAdminOpenId) {
+  const submission = await resolveRecordReference(
+    bitableUtils.CONFIG.apps.deck,
+    bitableUtils.TABLES.deckSubmissions,
+    submissionId,
+    ['deck_submission_uid', 'submission_uid'],
+    bitableUtils
   );
-  
-  // 查询战队信息
-  const team = await getRecord(
-    BITABLE_CONFIG.apps.basic,
-    TABLES.teams,
-    submission.fields.team_uid
+
+  const tournament = await resolveRecordReference(
+    bitableUtils.CONFIG.apps.operation,
+    bitableUtils.TABLES.tournaments,
+    tournamentUid,
+    ['tournament_uid'],
+    bitableUtils
   );
-  
-  // 查询赛事信息
-  const tournament = await getRecord(
-    BITABLE_CONFIG.apps.operation,
-    TABLES.tournaments,
-    tournamentUid
-  );
-  
-  // 构建确认卡片（发送给管理员）
+
+  const entityType = getFieldValue(submission, ['entity_type']) || 'team';
+  const teamUid = getFieldValue(submission, ['team_uid', 'entity_uid']);
+  const playerUid = getFieldValue(submission, ['player_uid', 'entity_uid']);
+  const entityLabel = entityType === 'player'
+    ? getFieldValue(await resolvePlayerRecord(playerUid, bitableUtils), ['nickname', 'real_name', 'player_name']) || '选手'
+    : getFieldValue(await resolveTeamRecord(teamUid, bitableUtils), ['team_name', 'name']) || '战队';
+
+  const deckCount = getFieldValue(submission, ['submitted_deck_count', 'deck_count']) || (entityType === 'player' ? 4 : 11);
+  const entityTitle = entityType === 'player' ? '选手' : '战队';
+
   const card = {
     config: { wide_screen_mode: true },
     header: {
@@ -304,7 +320,7 @@ async function generatePublishConfirmation(submissionId, tournamentUid, bitableU
         tag: 'div',
         text: {
           tag: 'lark_md',
-          content: `**赛事：** ${tournament.fields.tournament_name}\n**战队：** ${team.fields.team_name}\n**套数：** ${submission.fields.submitted_deck_count}套`,
+          content: `**赛事：** ${getFieldValue(tournament, ['tournament_name', 'name']) || tournamentUid}\n**${entityTitle}：** ${entityLabel}\n**套数：** ${deckCount} 套`,
         },
       },
       {
@@ -317,7 +333,7 @@ async function generatePublishConfirmation(submissionId, tournamentUid, bitableU
             value: {
               action: 'publish_decks',
               tournament_uid: tournamentUid,
-              submission_ids: [submissionId],
+              submission_ids: [getFieldValue(submission, ['deck_submission_uid', 'submission_uid']) || submissionId],
             },
           },
           {
@@ -327,31 +343,21 @@ async function generatePublishConfirmation(submissionId, tournamentUid, bitableU
             value: {
               action: 'revise_publish_draft',
               tournament_uid: tournamentUid,
-              submission_id: submissionId,
+              submission_id: getFieldValue(submission, ['deck_submission_uid', 'submission_uid']) || submissionId,
             },
           },
         ],
       },
     ],
   };
-  
-  // 发送给管理员
-  const { CONFIG } = require('./callback-handler-skeleton');
-  return await sendCardMessage(CONFIG.admin.openId, card);
+
+  return await sendCardMessage(adminOpenId, card);
 }
 
-/**
- * 创建公告
- * @param {string} tournamentUid - 赛事 UID
- * @param {Object} announcement - 公告内容
- * @param {Object} bitableUtils - 多维表格工具
- */
 async function createAnnouncement(tournamentUid, announcement, bitableUtils) {
-  const { CONFIG: BITABLE_CONFIG, TABLES, createRecord } = bitableUtils;
-  
-  const record = await createRecord(
-    BITABLE_CONFIG.apps.deck,
-    TABLES.announcements,
+  return await bitableUtils.createRecord(
+    bitableUtils.CONFIG.apps.deck,
+    bitableUtils.TABLES.announcements,
     {
       tournament_uid: tournamentUid,
       announcement_type: announcement.type,
@@ -362,61 +368,112 @@ async function createAnnouncement(tournamentUid, announcement, bitableUtils) {
       status: 'published',
     }
   );
-  
-  return record;
 }
 
-/**
- * 通知争议双方
- * @param {string} disputeId - 争议 ID
- * @param {string} title - 通知标题
- * @param {string} content - 通知内容
- * @param {Object} bitableUtils - 多维表格工具
- */
 async function notifyDisputeParties(disputeId, title, content, bitableUtils) {
-  const { CONFIG: BITABLE_CONFIG, TABLES, getRecord } = bitableUtils;
-  
-  // 查询争议信息
-  const dispute = await getRecord(
-    BITABLE_CONFIG.apps.operation,
-    TABLES.disputes,
-    disputeId
+  const dispute = await resolveRecordReference(
+    bitableUtils.CONFIG.apps.operation,
+    bitableUtils.TABLES.disputes,
+    disputeId,
+    ['dispute_uid'],
+    bitableUtils
   );
-  
-  // 查询双方选手信息
-  const plaintiff = await getRecord(
-    BITABLE_CONFIG.apps.basic,
-    TABLES.players,
-    dispute.fields.plaintiff_player_uid
+
+  const plaintiff = await resolvePlayerRecord(
+    getFieldValue(dispute, ['plaintiff_player_uid']),
+    bitableUtils
   );
-  
-  const defendant = await getRecord(
-    BITABLE_CONFIG.apps.basic,
-    TABLES.players,
-    dispute.fields.defendant_player_uid
+  const defendant = await resolvePlayerRecord(
+    getFieldValue(dispute, ['defendant_player_uid']),
+    bitableUtils
   );
-  
-  // 发送通知
-  const message = `**${title}**\n\n${content}`;
-  
-  const results = await Promise.all([
-    sendNotification(plaintiff.fields.feishu_open_id, message).catch(e => ({ success: false, error: e.message })),
-    sendNotification(defendant.fields.feishu_open_id, message).catch(e => ({ success: false, error: e.message })),
-  ]);
-  
-  return {
-    plaintiff: results[0],
-    defendant: results[1],
-  };
+
+  const message = `${title}\n\n${content}`;
+  const targets = [plaintiff, defendant]
+    .map(record => getFieldValue(record, ['feishu_open_id', 'user_open_id', 'open_id']))
+    .filter(Boolean);
+
+  const results = await Promise.all(
+    targets.map(openId => sendNotification(openId, message).catch(error => ({ success: false, error: error.message })))
+  );
+
+  return results;
 }
 
-/**
- * 通知管理员
- * @param {string} message - 通知内容
- */
-async function notifyAdmin(message) {
-  const { CONFIG } = require('./callback-handler-skeleton');
-  return await sendNotification(CONFIG.admin.openId, `⚠️ 系统通知\n\n${message}`);
+async function notifyAdmin(message, adminOpenId = CONFIG.defaultAdminOpenId) {
+  return await sendNotification(adminOpenId, `⚠️ 系统通知\n\n${message}`);
+}
+
+// ============================================
+// 5. 辅助函数
+// ============================================
+
+function getFieldValue(record, candidateFields = []) {
+  if (!record?.fields) {
+    return undefined;
+  }
+
+  for (const fieldName of candidateFields) {
+    const value = record.fields[fieldName];
+    if (value !== undefined && value !== null && value !== '') {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+async function resolveRecordReference(appToken, tableId, idOrUid, candidateFields = [], bitableUtils) {
+  if (!idOrUid) {
+    return null;
+  }
+
+  try {
+    const record = await bitableUtils.getRecord(appToken, tableId, idOrUid);
+    if (record) {
+      return record;
+    }
+  } catch (error) {
+    // ignore and fallback to field lookup
+  }
+
+  for (const fieldName of candidateFields) {
+    const records = await bitableUtils.queryRecord(appToken, tableId, {
+      filter: {
+        conjunction: 'and',
+        conditions: [
+          { field_name: fieldName, operator: 'is', value: [idOrUid] },
+        ],
+      },
+      pageSize: 1,
+    });
+
+    if (records?.length) {
+      return records[0];
+    }
+  }
+
+  return null;
+}
+
+async function resolvePlayerRecord(playerIdOrUid, bitableUtils) {
+  return await resolveRecordReference(
+    bitableUtils.CONFIG.apps.basic,
+    bitableUtils.TABLES.players,
+    playerIdOrUid,
+    ['player_uid'],
+    bitableUtils
+  );
+}
+
+async function resolveTeamRecord(teamIdOrUid, bitableUtils) {
+  return await resolveRecordReference(
+    bitableUtils.CONFIG.apps.basic,
+    bitableUtils.TABLES.teams,
+    teamIdOrUid,
+    ['team_uid'],
+    bitableUtils
+  );
 }
 
 // ============================================
@@ -424,17 +481,12 @@ async function notifyAdmin(message) {
 // ============================================
 
 module.exports = {
-  // 基础发送
   sendNotification,
   batchSendNotification,
   sendGroupMessage,
   sendGroupMessageByTournament,
-  
-  // 卡片消息
   sendCardMessage,
   sendGroupCardMessage,
-  
-  // 场景通知
   pushDeckSubmissionEntry,
   generatePublishConfirmation,
   createAnnouncement,
