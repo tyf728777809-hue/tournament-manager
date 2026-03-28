@@ -1,0 +1,7 @@
+{
+  "action": "reject_match_result_report",
+  "match_uid": "MATCH-HS202603-TEST-SOLO-001",
+  "result_report_uid": "RPT-MATCH-HS202603-TEST-SOLO-001-1774717992036",
+  "reject_reason": "比分不一致，申请管理员核实",
+  "test_as_side": "side_b"
+}

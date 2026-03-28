@@ -34,7 +34,7 @@
 ### 下一步建议
 1. 准备第二个真实 Feishu 身份样本，补一轮严格双人 `confirm / reject`
 2. 个人赛赛果链路核心分支（`submit / confirm / reject / timeout / admin-confirm`）已验证可通过 `context.prefetched` 在无 shell token 情况下产出 `write_plan`
-3. 已补统一入口脚本 `scripts/run-callback-with-prefetched.js`、prefetched 组装器 `scripts/build-solo-result-prefetched.js`，以及 `confirm` 端到端模板；下一步可继续补 `reject/timeout/admin-confirm` 模板
+3. 已补统一入口脚本、prefetched 组装器，以及 `confirm / reject / timeout / admin-confirm` 四条端到端模板；下一步可考虑把它们收成一个总索引或真实演练清单
 4. 视情况补测试样本复位动作，避免旧 dispute / completed_at 干扰重复联调观测
 
 ---

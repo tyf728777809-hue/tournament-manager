@@ -1,0 +1,7 @@
+{
+  "action": "escalate_match_result_report_timeout",
+  "match_uid": "MATCH-HS202603-TEST-SOLO-001",
+  "result_report_uid": "RPT-MATCH-HS202603-TEST-SOLO-001-1774717992036",
+  "reason": "联调时强制模拟超时",
+  "force": true
+}
