@@ -15,6 +15,7 @@ const {
   getRecord,
   updateRecord,
   createRecord,
+  batchCreateRecords,
 } = require('./bitable-api-utils');
 
 const {
@@ -76,6 +77,7 @@ const BITABLE_UTILS = {
   getRecord,
   updateRecord,
   createRecord,
+  batchCreateRecords,
 };
 
 // ============================================
@@ -97,7 +99,12 @@ async function handleCallback(callback, context = {}) {
   console.log(`[Callback] Action: ${action}`, params);
 
   try {
-    await checkPermission(context.operatorOpenId, params.tournament_uid, action);
+    if (requiresAdminPermission(action)) {
+      await checkPermission(context.operatorOpenId, params.tournament_uid, action);
+    } else {
+      await checkParticipantPermission(action, params, context);
+    }
+
     await checkState(action, params);
 
     switch (action) {
@@ -116,6 +123,8 @@ async function handleCallback(callback, context = {}) {
         return await rejectDeckSubmission(params);
       case 'publish_decks':
         return await publishDecks(params);
+      case 'submit_player_deck_form':
+        return await submitPlayerDeckForm(params, context);
 
       // 争议处理
       case 'approve_ai_recommendation':
@@ -206,6 +215,31 @@ function getAllowedActions(role) {
   return actionMap[role] || [];
 }
 
+function requiresAdminPermission(action) {
+  return !['submit_player_deck_form'].includes(action);
+}
+
+async function checkParticipantPermission(action, params, context = {}) {
+  if (action !== 'submit_player_deck_form') {
+    return true;
+  }
+
+  const operatorOpenId = context.operatorOpenId || params.operator_open_id;
+  if (!operatorOpenId) {
+    throw new Error('缺少 operatorOpenId');
+  }
+
+  const playerUid = params.player_uid || params.entity_uid;
+  const player = await getEntityRecord('player', playerUid);
+  const playerOpenId = getFieldValue(player, ['feishu_open_id', 'user_open_id', 'open_id']);
+
+  if (!playerOpenId || playerOpenId !== operatorOpenId) {
+    throw new Error('当前用户无权提交该选手卡组');
+  }
+
+  return true;
+}
+
 // ============================================
 // 状态校验
 // ============================================
@@ -236,7 +270,7 @@ async function checkState(action, params) {
     }
   }
 
-  if (action.includes('deck')) {
+  if (action.includes('deck') && action !== 'submit_player_deck_form') {
     const submission = await resolveRecordReference(
       CONFIG.bitable.apps.deck,
       TABLES.deckSubmissions,
@@ -519,6 +553,128 @@ async function publishDecks(params) {
   return { success: true, message: '卡组已公示' };
 }
 
+async function submitPlayerDeckForm(params, context = {}) {
+  const timestamp = Date.now();
+  const tournamentUid = params.tournament_uid;
+  const registrationUid = params.registration_uid;
+  const playerUid = params.player_uid || params.entity_uid;
+
+  if (!tournamentUid || !registrationUid || !playerUid) {
+    throw new Error('缺少 tournament_uid / registration_uid / player_uid');
+  }
+
+  const registration = await resolveRecordReference(
+    CONFIG.bitable.apps.operation,
+    TABLES.registrations,
+    registrationUid,
+    ['registration_uid']
+  );
+
+  if (!registration) {
+    throw new Error('报名记录不存在');
+  }
+
+  if (registration.fields.registration_status !== 'approved') {
+    throw new Error('当前报名状态未通过审核，无法提交卡组');
+  }
+
+  const registrationPlayerUid = getFieldValue(registration, ['player_uid', 'entity_uid']);
+  if (registrationPlayerUid && registrationPlayerUid !== playerUid) {
+    throw new Error('报名记录与当前选手不匹配');
+  }
+
+  const tournament = await resolveRecordReference(
+    CONFIG.bitable.apps.operation,
+    TABLES.tournaments,
+    tournamentUid,
+    ['tournament_uid']
+  );
+
+  validateDeckDeadline(tournament, timestamp);
+
+  const normalizedDecks = normalizePlayerDeckPayload(params);
+  validateSoloDecks(normalizedDecks);
+
+  const previousSubmissions = await queryRecord(
+    CONFIG.bitable.apps.deck,
+    TABLES.deckSubmissions,
+    {
+      filter: {
+        conjunction: 'and',
+        conditions: [
+          { field_name: 'registration_uid', operator: 'is', value: [registrationUid] },
+        ],
+      },
+      sort: [{ field_name: 'submitted_at', desc: true }],
+    }
+  );
+
+  const nextVersion = getNextSubmissionVersion(previousSubmissions);
+  const submissionUid = buildSubmissionUid(tournamentUid, playerUid, nextVersion);
+  const player = await getEntityRecord('player', playerUid);
+
+  const createdSubmission = await createRecord(
+    CONFIG.bitable.apps.deck,
+    TABLES.deckSubmissions,
+    {
+      deck_submission_uid: submissionUid,
+      registration_uid: registrationUid,
+      tournament_uid: tournamentUid,
+      entity_type: 'player',
+      entity_uid: playerUid,
+      player_uid: playerUid,
+      submission_version: nextVersion,
+      submission_reason: params.submission_reason || (previousSubmissions.length ? 'resubmission' : 'initial_submission'),
+      submission_status: 'submitted',
+      secrecy_status: 'sealed',
+      public_publish_status: 'not_published',
+      submitted_at: timestamp,
+      submitted_by: context.operatorOpenId || getFieldValue(player, ['feishu_open_id', 'user_open_id', 'open_id']),
+      is_current_effective_version: false,
+      submitted_deck_count: normalizedDecks.length,
+    }
+  );
+
+  await batchCreateRecords(
+    CONFIG.bitable.apps.deck,
+    TABLES.decks,
+    normalizedDecks.map((deck, index) => ({
+      fields: {
+        deck_submission_uid: submissionUid,
+        tournament_uid: tournamentUid,
+        entity_type: 'player',
+        entity_uid: playerUid,
+        player_uid: playerUid,
+        class_name: deck.class_name,
+        deck_name: deck.deck_name,
+        deck_code: deck.deck_code,
+        deck_image: deck.deck_image,
+        deck_order: index + 1,
+        opponent_visibility: 'hidden',
+        public_visibility: 'hidden',
+        created_at: timestamp,
+      },
+    }))
+  );
+
+  const notifyOpenIds = await getEntityNotifyOpenIds('player', playerUid);
+  await notifyMany(
+    notifyOpenIds,
+    '✅ 已收到你的4套卡组。\n当前状态：已提交，正在检查与审核。\n下一步：审核通过后进入保密存档；如有问题会私聊通知你修改。'
+  );
+
+  return {
+    success: true,
+    message: '个人赛卡组已提交',
+    data: {
+      submission_record_id: createdSubmission?.record?.record_id || createdSubmission?.record_id,
+      submission_uid: submissionUid,
+      submission_version: nextVersion,
+      deck_count: normalizedDecks.length,
+    },
+  };
+}
+
 // ============================================
 // 争议处理
 // ============================================
@@ -778,6 +934,90 @@ async function getEntityRecord(entityType, entityUid) {
   return null;
 }
 
+function normalizePlayerDeckPayload(params = {}) {
+  if (Array.isArray(params.decks) && params.decks.length) {
+    return params.decks.map((deck, index) => ({
+      class_name: deck.class_name || deck.class || deck.hero_class,
+      deck_name: deck.deck_name || deck.name || '',
+      deck_code: (deck.deck_code || deck.code || '').trim(),
+      deck_image: deck.deck_image || deck.image || null,
+      deck_order: deck.deck_order || index + 1,
+    }));
+  }
+
+  const normalized = [];
+  for (let i = 1; i <= 4; i++) {
+    const className = params[`deck_${i}_class_name`] || params[`deck_${i}_class`] || params[`class_${i}`];
+    const deckCode = params[`deck_${i}_deck_code`] || params[`deck_${i}_code`] || params[`code_${i}`];
+    const deckName = params[`deck_${i}_deck_name`] || params[`name_${i}`] || '';
+    const deckImage = params[`deck_${i}_deck_image`] || params[`image_${i}`] || null;
+
+    if (className || deckCode || deckName || deckImage) {
+      normalized.push({
+        class_name: className,
+        deck_name: deckName,
+        deck_code: (deckCode || '').trim(),
+        deck_image: deckImage,
+        deck_order: i,
+      });
+    }
+  }
+
+  return normalized;
+}
+
+function validateSoloDecks(decks = []) {
+  if (decks.length !== 4) {
+    throw new Error('请提交4套卡组');
+  }
+
+  const classes = [];
+  for (const [index, deck] of decks.entries()) {
+    if (!deck.class_name) {
+      throw new Error(`第${index + 1}套卡组缺少职业`);
+    }
+    if (!deck.deck_code) {
+      throw new Error(`第${index + 1}套卡组缺少卡组代码`);
+    }
+    classes.push(deck.class_name.trim());
+  }
+
+  if (new Set(classes).size !== 4) {
+    throw new Error('4套卡组职业不能重复');
+  }
+}
+
+function validateDeckDeadline(tournament, nowTs) {
+  const deadline = getFieldValue(tournament, ['deck_deadline', 'deck_submit_deadline', 'submission_deadline']);
+  if (typeof deadline === 'number' && deadline > 0 && nowTs > deadline) {
+    throw new Error('卡组提交已截止');
+  }
+}
+
+function getNextSubmissionVersion(previousSubmissions = []) {
+  let maxVersion = 0;
+
+  for (const submission of previousSubmissions) {
+    const rawVersion = getFieldValue(submission, ['submission_version']);
+    if (typeof rawVersion === 'number') {
+      maxVersion = Math.max(maxVersion, rawVersion);
+      continue;
+    }
+
+    const matched = String(rawVersion || '').match(/(\d+)/);
+    if (matched) {
+      maxVersion = Math.max(maxVersion, Number(matched[1]));
+    }
+  }
+
+  return `V${maxVersion + 1}`;
+}
+
+function buildSubmissionUid(tournamentUid, playerUid, version) {
+  const versionSuffix = String(version || 'V1').replace(/[^A-Za-z0-9]/g, '');
+  return `DECKSUB-${tournamentUid}-${playerUid}-${versionSuffix}`;
+}
+
 // ============================================
 // 导出
 // ============================================
@@ -794,6 +1034,7 @@ module.exports = {
   approveDeckSubmission,
   rejectDeckSubmission,
   publishDecks,
+  submitPlayerDeckForm,
   approveAIRecommendation,
   customRuling,
   listPendingRegistrations,
