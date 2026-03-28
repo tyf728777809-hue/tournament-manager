@@ -28,6 +28,16 @@ const {
   notifyAdmin,
 } = require('./notification-utils');
 
+const {
+  buildInitialSoloConquestState,
+  normalizeSoloConquestState,
+  validateSoloGameResultInput,
+  applySoloGameResult,
+  deriveSoloConquestState,
+  getAvailableClassesForSide,
+  buildSoloMatchResultText,
+} = require('./solo-conquest-utils');
+
 // ============================================
 // 配置与常量
 // ============================================
@@ -1218,4 +1228,11 @@ module.exports = {
   listPendingDecks,
   listPendingDisputes,
   updateDecksVisibility,
+  buildInitialSoloConquestState,
+  normalizeSoloConquestState,
+  validateSoloGameResultInput,
+  applySoloGameResult,
+  deriveSoloConquestState,
+  getAvailableClassesForSide,
+  buildSoloMatchResultText,
 };
