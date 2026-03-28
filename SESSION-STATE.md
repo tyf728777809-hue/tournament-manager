@@ -36,6 +36,13 @@
 
 换言之，当前个人赛赛果链路已不再停留在离线推演、单人受控绕过或局部字段校正阶段，而是已经形成了可复跑、可证据化、可文档化的真实闭环样本。
 
+### 线上接线最新进展
+- 已补最小 HTTP webhook 入口：`炉石赛事/feishu-callback-server.js`
+- 已补飞书事件适配层：`炉石赛事/feishu-callback-adapter.js`
+- 已补接线文档：《`炉石赛事/个人赛赛果线上回调接线方案-v1.md`》
+- 已修正 `adminConfirmMatchResultReport()` 的状态一致性：优先保留原 `opponent_confirmation_status`，避免把 timeout 场景误覆盖成 `skipped`
+- 已完成本地语法校验：`callback-handler.js` / `feishu-callback-adapter.js` / `feishu-callback-server.js` 均可通过 `node -c`
+
 ### 建议下一步
 1. 将主注意力从“赛果链路补洞”切到更高优先级的个人赛后续主链路 / 线上接入事项
 2. 若后续还要继续大段施工，建议先基于本轮收口点切一个新会话，避免主会话上下文继续膨胀

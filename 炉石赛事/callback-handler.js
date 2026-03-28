@@ -1421,13 +1421,17 @@ async function adminConfirmMatchResultReport(params) {
   const resultText = getFieldValue(report, ['final_result_text', 'report_note']) || getFieldValue(match, ['final_result_text']) || '';
   const winnerSide = inferWinnerSideFromResultText(resultText, sideContext);
 
+  const existingOpponentConfirmationStatus = getFieldValue(report, ['opponent_confirmation_status']) || '';
+  const nextOpponentConfirmationStatus = existingOpponentConfirmationStatus
+    || (getFieldValue(report, ['report_status']) === 'awaiting_admin_review' ? 'timeout' : 'skipped');
+
   await safeUpdateRecord(
     CONFIG.bitable.apps.operation,
     TABLES.resultReports,
     report.record_id,
     {
       report_status: 'admin_confirmed',
-      opponent_confirmation_status: 'skipped',
+      opponent_confirmation_status: nextOpponentConfirmationStatus,
       final_applied_to_match: true,
       applied_at: timestamp,
       reviewed_by: params.admin_open_id || '',
