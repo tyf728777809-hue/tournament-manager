@@ -37,6 +37,7 @@
 换言之，当前个人赛赛果链路已不再停留在离线推演、单人受控绕过或局部字段校正阶段，而是已经形成了可复跑、可证据化、可文档化的真实闭环样本。
 
 ### 线上接线最新进展
+- 已补本地一键脚本：`炉石赛事/run-feishu-callback-local.sh`，支持 `dry-run` / `real` 两种模式；当前已用 dry-run 实测通过
 - 已补 dry-run 验证模式：`FEISHU_CALLBACK_DRY_RUN=1` 时，`feishu-callback-server.js` 会返回解析后的 `callback/context`，但不执行写表/通知
 - 已新增本地样板：`tmp/feishu-url-verification.json`、`tmp/feishu-interactive-confirm.json`
 - 已完成一轮本地 HTTP 验证：`url_verification` 可正确返回 challenge；`interactive confirm` 可正确解析出 `action/match_uid/result_report_uid/operatorOpenId`
