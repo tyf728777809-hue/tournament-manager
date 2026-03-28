@@ -78,6 +78,10 @@ const TABLES = {
   deckSubmissions: 'tblEEtx8k1AzYy4j',
   decks: 'tblraWTd0mgs5Bgu',
   announcements: 'tbloMMt0CwQsTDpM',
+  bpRounds: 'tblgfufpxvYjKNte',
+  bpActions: 'tbl9nSeXjV8mvHVr',
+  matchGames: null,
+  matchClassStates: null,
 };
 
 const BITABLE_UTILS = {
@@ -137,6 +141,8 @@ async function handleCallback(callback, context = {}) {
         return await submitPlayerRegistrationForm(params, context);
       case 'submit_player_deck_form':
         return await submitPlayerDeckForm(params, context);
+      case 'record_solo_game_result':
+        return await recordSoloGameResult(params, context);
 
       // 争议处理
       case 'approve_ai_recommendation':
@@ -210,15 +216,18 @@ function getAllowedActions(role) {
     owner: [
       'approve_registration', 'reject_registration', 'request_registration_info',
       'approve_deck_submission', 'reject_deck_submission', 'publish_decks',
+      'record_solo_game_result',
       'approve_ai_recommendation', 'custom_ruling',
       'list_pending_registrations', 'list_pending_decks', 'list_pending_disputes',
     ],
     admin: [
       'approve_registration', 'reject_registration', 'request_registration_info',
       'approve_deck_submission', 'reject_deck_submission',
+      'record_solo_game_result',
       'list_pending_registrations', 'list_pending_decks', 'list_pending_disputes',
     ],
     judge: [
+      'record_solo_game_result',
       'approve_ai_recommendation', 'custom_ruling',
       'list_pending_disputes',
     ],
@@ -263,7 +272,7 @@ async function checkParticipantPermission(action, params, context = {}) {
 // ============================================
 
 async function checkState(action, params) {
-  const { registration_id, submission_id, dispute_id } = params;
+  const { registration_id, submission_id, dispute_id, match_uid, match_id } = params;
 
   if (action.includes('registration') && action !== 'submit_player_registration_form') {
     const registration = await resolveRecordReference(
@@ -308,6 +317,24 @@ async function checkState(action, params) {
 
     if (action === 'reject_deck_submission' && !['submitted', 'auto_failed', 'under_review'].includes(status)) {
       throw new Error(`当前状态(${status})不允许驳回`);
+    }
+  }
+
+  if (action === 'record_solo_game_result') {
+    const match = await resolveRecordReference(
+      CONFIG.bitable.apps.operation,
+      TABLES.matches,
+      match_uid || match_id,
+      ['match_uid']
+    );
+
+    if (!match) {
+      throw new Error('对局不存在');
+    }
+
+    const status = getFieldValue(match, ['match_status', 'status']) || 'ready';
+    if (!['ready', 'in_game', 'result_pending_confirmation'].includes(status)) {
+      throw new Error(`当前对局状态(${status})不允许录入个人赛小局结果`);
     }
   }
 
@@ -779,6 +806,80 @@ async function submitPlayerDeckForm(params, context = {}) {
   };
 }
 
+async function recordSoloGameResult(params, context = {}) {
+  const timestamp = Date.now();
+  const matchUid = params.match_uid || params.match_id;
+
+  if (!matchUid) {
+    throw new Error('缺少 match_uid');
+  }
+
+  const match = await resolveRecordReference(
+    CONFIG.bitable.apps.operation,
+    TABLES.matches,
+    matchUid,
+    ['match_uid']
+  );
+
+  const conquestState = await getOrBuildSoloConquestState(match);
+  const nextState = applySoloGameResult(conquestState, {
+    gameNo: params.game_no || params.gameNo,
+    sideAClass: params.side_a_class || params.sideAClass,
+    sideBClass: params.side_b_class || params.sideBClass,
+    winnerSide: params.winner_side || params.winnerSide,
+    endedAt: params.ended_at || params.endedAt || timestamp,
+    note: params.note || params.internal_note || '',
+  });
+
+  const sideAName = getFieldValue(match, ['side_a_entity_name', 'side_a_name', 'player_a_name', 'side_a_display_name']) || 'A方';
+  const sideBName = getFieldValue(match, ['side_b_entity_name', 'side_b_name', 'player_b_name', 'side_b_display_name']) || 'B方';
+  const resultText = buildSoloMatchResultText(nextState, sideAName, sideBName);
+
+  await safeUpdateRecord(
+    CONFIG.bitable.apps.operation,
+    TABLES.matches,
+    match.record_id,
+    {
+      match_status: nextState.matchStatus,
+      current_game_no: nextState.currentGameNo,
+      current_score: nextState.finalScore,
+      final_result_text: nextState.matchStatus === 'completed' ? resultText : '',
+      winner_side: nextState.winnerSide || '',
+      conquest_state_json: JSON.stringify(nextState),
+      last_game_result_json: JSON.stringify(nextState.games[nextState.games.length - 1] || {}),
+      updated_at: timestamp,
+      completed_at: nextState.matchStatus === 'completed' ? timestamp : null,
+    }
+  );
+
+  await writeSoloGameProjection(match, nextState, timestamp);
+
+  if (nextState.matchStatus === 'completed') {
+    await sendGroupMessageByTournament(
+      getFieldValue(match, ['tournament_uid']) || params.tournament_uid,
+      `✅ 个人赛结果已确认\n${resultText}`,
+      BITABLE_UTILS
+    ).catch(() => null);
+  }
+
+  return {
+    success: true,
+    message: nextState.matchStatus === 'completed' ? '个人赛已完成并写回结果' : '个人赛小局结果已记录',
+    data: {
+      match_uid: getFieldValue(match, ['match_uid']) || matchUid,
+      match_status: nextState.matchStatus,
+      current_score: nextState.finalScore,
+      current_game_no: nextState.currentGameNo,
+      winner_side: nextState.winnerSide,
+      final_result_text: nextState.matchStatus === 'completed' ? resultText : '',
+      next_side_a_available: nextState.matchStatus === 'completed' ? [] : getAvailableClassesForSide(nextState, 'side_a'),
+      next_side_b_available: nextState.matchStatus === 'completed' ? [] : getAvailableClassesForSide(nextState, 'side_b'),
+      last_game: nextState.games[nextState.games.length - 1] || null,
+      operator_open_id: context.operatorOpenId || params.operator_open_id || null,
+    },
+  };
+}
+
 // ============================================
 // 争议处理
 // ============================================
@@ -896,6 +997,121 @@ async function listPendingDisputes(params) {
 // 辅助函数
 // ============================================
 
+async function getOrBuildSoloConquestState(match) {
+  const stored = getFieldValue(match, ['conquest_state_json', 'solo_conquest_state_json', 'state_json']);
+  if (stored) {
+    try {
+      const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
+      return normalizeSoloConquestState(parsed);
+    } catch (error) {
+      console.warn('[getOrBuildSoloConquestState] parse failed, fallback rebuild:', error.message);
+    }
+  }
+
+  const sideASubmissionUid = getFieldValue(match, ['side_a_submission_uid', 'side_a_deck_submission_uid']);
+  const sideBSubmissionUid = getFieldValue(match, ['side_b_submission_uid', 'side_b_deck_submission_uid']);
+
+  if (!sideASubmissionUid || !sideBSubmissionUid) {
+    throw new Error('缺少双方卡组提交 UID，无法初始化征服状态');
+  }
+
+  const [sideAClasses, sideBClasses, sideABannedClasses, sideBBannedClasses] = await Promise.all([
+    getSubmissionDeckClasses(sideASubmissionUid),
+    getSubmissionDeckClasses(sideBSubmissionUid),
+    getBannedClassesByMatch(getFieldValue(match, ['match_uid']), 'side_a'),
+    getBannedClassesByMatch(getFieldValue(match, ['match_uid']), 'side_b'),
+  ]);
+
+  return buildInitialSoloConquestState({
+    sideAClasses,
+    sideBClasses,
+    sideABannedClasses,
+    sideBBannedClasses,
+    targetWins: 3,
+    currentGameNo: 1,
+  });
+}
+
+async function getSubmissionDeckClasses(submissionUid) {
+  const decks = await queryRecord(
+    CONFIG.bitable.apps.deck,
+    TABLES.decks,
+    {
+      filter: {
+        conjunction: 'and',
+        conditions: [
+          { field_name: 'deck_submission_uid', operator: 'is', value: [submissionUid] },
+        ],
+      },
+      sort: [{ field_name: 'deck_order', desc: false }],
+    }
+  );
+
+  return uniq((decks || []).map(deck => getFieldValue(deck, ['class_name', 'hero_class'])));
+}
+
+async function getBannedClassesByMatch(matchUid, sideLabel) {
+  if (!matchUid) {
+    return [];
+  }
+
+  const actions = await queryRecord(
+    CONFIG.bitable.apps.deck,
+    TABLES.bpActions,
+    {
+      filter: {
+        conjunction: 'and',
+        conditions: [
+          { field_name: 'bp_round_uid', operator: 'contains', value: [matchUid] },
+          { field_name: 'side_label', operator: 'is', value: [sideLabel] },
+        ],
+      },
+    }
+  ).catch(() => []);
+
+  return uniq((actions || []).map(action => getFieldValue(action, ['banned_deck_class', 'class_name'])));
+}
+
+async function writeSoloGameProjection(match, nextState, timestamp) {
+  const matchUid = getFieldValue(match, ['match_uid']);
+  if (!matchUid) {
+    return;
+  }
+
+  const lastGame = nextState.games[nextState.games.length - 1];
+  if (!lastGame) {
+    return;
+  }
+
+  const projectionPayload = {
+    match_game_uid: `MG-${matchUid}-${String(lastGame.gameNo).padStart(2, '0')}`,
+    match_uid: matchUid,
+    game_number: lastGame.gameNo,
+    side_a_class: lastGame.sideAClass,
+    side_b_class: lastGame.sideBClass,
+    winner_side: lastGame.winnerSide,
+    winner_class: lastGame.winnerClass,
+    loser_class: lastGame.loserClass,
+    result_status: 'done',
+    ended_at: lastGame.endedAt,
+    internal_note: lastGame.note || '',
+  };
+
+  await safeCreateRecord(CONFIG.bitable.apps.operation, TABLES.matchGames, projectionPayload);
+
+  await safeCreateRecord(CONFIG.bitable.apps.operation, TABLES.matchClassStates, {
+    match_class_state_uid: `MCS-${matchUid}-${String(lastGame.gameNo).padStart(2, '0')}`,
+    match_uid: matchUid,
+    game_number: lastGame.gameNo,
+    side_a_available_classes: JSON.stringify(nextState.sideA.availableClasses),
+    side_b_available_classes: JSON.stringify(nextState.sideB.availableClasses),
+    side_a_conquered_classes: JSON.stringify(nextState.sideA.conqueredClasses),
+    side_b_conquered_classes: JSON.stringify(nextState.sideB.conqueredClasses),
+    winner_side: lastGame.winnerSide,
+    locked_at: timestamp,
+  });
+}
+
 async function getEntityNotifyOpenIds(entityType, entityUid) {
   if (!entityType || !entityUid) {
     return [];
@@ -929,11 +1145,30 @@ async function notifyMany(openIds, message) {
 
 async function safeUpdateRecord(appToken, tableId, recordId, fields) {
   try {
+    if (!appToken || !tableId || !recordId) {
+      return null;
+    }
     return await updateRecord(appToken, tableId, recordId, fields);
   } catch (error) {
     console.warn('[safeUpdateRecord] skipped:', error.message);
     return null;
   }
+}
+
+async function safeCreateRecord(appToken, tableId, fields) {
+  try {
+    if (!appToken || !tableId) {
+      return null;
+    }
+    return await createRecord(appToken, tableId, fields);
+  } catch (error) {
+    console.warn('[safeCreateRecord] skipped:', error.message);
+    return null;
+  }
+}
+
+function uniq(values = []) {
+  return [...new Set((values || []).filter(Boolean).map(v => String(v).trim()))];
 }
 
 async function updateDecksVisibility(submissionId, visibility, timestamp) {
@@ -1222,6 +1457,7 @@ module.exports = {
   publishDecks,
   submitPlayerRegistrationForm,
   submitPlayerDeckForm,
+  recordSoloGameResult,
   approveAIRecommendation,
   customRuling,
   listPendingRegistrations,

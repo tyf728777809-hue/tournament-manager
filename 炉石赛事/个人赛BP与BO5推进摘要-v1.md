@@ -104,3 +104,29 @@
 - **征服制状态机已经先独立落成**
 - 后面只需要把它接进 `callback-handler.js` 的真实写表与回调入口
 - 不必等所有多维表字段先补齐，逻辑层已经可以先稳定下来
+
+## 7. 回调层接线进展（2026-03-28 晚）
+
+已在 `callback-handler.js` 新增最小 action：`record_solo_game_result`
+
+当前这条 action 已能完成：
+- 读取 `matches` 记录
+- 若已有 `conquest_state_json`，直接续算
+- 若没有，则尝试根据：
+  - `side_a_submission_uid`
+  - `side_b_submission_uid`
+  - `bp_actions` 中的 ban 结果
+  自动构造初始征服状态
+- 写入一局结果后，自动回写：
+  - `match_status`
+  - `current_game_no`
+  - `current_score`
+  - `winner_side`
+  - `final_result_text`
+  - `conquest_state_json`
+  - `last_game_result_json`
+
+当前仍是“最小可用接线版”，还没完全补齐的有：
+- `match_games` / `match_class_states` 真实表写入（目前先预留）
+- 对手确认 / 裁判兜底联动
+- 更完整的赛果公告与异常处理
