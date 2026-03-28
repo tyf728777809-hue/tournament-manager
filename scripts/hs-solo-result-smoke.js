@@ -24,6 +24,7 @@ function usage() {
   --result <text>          自定义赛果文案（submit 可传）
   --timeout <minutes>      提交后确认时限（submit 可传）
   --force true             timeout 时忽略截止时间直接升级
+  --as-side <side_a|side_b> 仅联调用，配合 HS_SOLO_RESULT_TEST_BYPASS=1 模拟双方身份
 
 示例：
   node scripts/hs-solo-result-smoke.js submit --match MATCH-HS202603-TEST-SOLO-001 --operator ou_xxx
@@ -53,6 +54,7 @@ function buildActionPayload(step, args) {
   const match_uid = args.match;
   const result_report_uid = args.report;
   const operator_open_id = args.operator;
+  const test_as_side = args['as-side'];
 
   switch (step) {
     case 'submit':
@@ -64,6 +66,7 @@ function buildActionPayload(step, args) {
           final_result_text: args.result,
           confirm_timeout_minutes: args.timeout ? Number(args.timeout) : undefined,
           note: args.reason || '',
+          test_as_side,
         },
         context: { operatorOpenId: operator_open_id },
       };
@@ -73,6 +76,7 @@ function buildActionPayload(step, args) {
           action: 'confirm_match_result_report',
           match_uid,
           result_report_uid,
+          test_as_side,
         },
         context: { operatorOpenId: operator_open_id },
       };
@@ -83,6 +87,7 @@ function buildActionPayload(step, args) {
           match_uid,
           result_report_uid,
           reject_reason: args.reason || 'smoke test rejection',
+          test_as_side,
         },
         context: { operatorOpenId: operator_open_id },
       };

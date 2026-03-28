@@ -268,6 +268,9 @@ async function checkParticipantPermission(action, params, context = {}) {
     return true;
   }
 
+  const testingBypassEnabled = isSoloResultTestingBypassEnabled();
+  const testingSideOverride = getTestingSideOverride(params);
+
   if (action === 'submit_player_deck_form') {
     const operatorOpenId = context.operatorOpenId || params.operator_open_id;
     if (!operatorOpenId) {
@@ -304,7 +307,7 @@ async function checkParticipantPermission(action, params, context = {}) {
 
     const sideContext = await getSoloMatchSideContext(match);
     const allOpenIds = [sideContext.sideAOpenId, sideContext.sideBOpenId].filter(Boolean);
-    if (!allOpenIds.includes(operatorOpenId)) {
+    if (!allOpenIds.includes(operatorOpenId) && !(testingBypassEnabled && testingSideOverride)) {
       throw new Error('当前用户不是该对局参赛选手');
     }
 
@@ -319,10 +322,14 @@ async function checkParticipantPermission(action, params, context = {}) {
     }
 
     const reporterOpenId = getFieldValue(report, ['reporter_open_id']);
+    const reporterSide = getFieldValue(report, ['reporter_side']);
     const expectedConfirmerOpenId = reporterOpenId === sideContext.sideAOpenId ? sideContext.sideBOpenId : sideContext.sideAOpenId;
+    const expectedConfirmerSide = reporterSide === 'side_a' ? 'side_b' : 'side_a';
 
     if (action === 'confirm_match_result_report' || action === 'reject_match_result_report') {
-      if (operatorOpenId !== expectedConfirmerOpenId) {
+      const operatorMatchesOpponent = operatorOpenId === expectedConfirmerOpenId;
+      const testingMatchesOpponent = testingBypassEnabled && testingSideOverride === expectedConfirmerSide;
+      if (!operatorMatchesOpponent && !testingMatchesOpponent) {
         throw new Error('仅对手方可确认或拒绝该赛果');
       }
     }
@@ -995,7 +1002,8 @@ async function submitMatchResultReport(params, context = {}) {
   );
 
   const sideContext = await getSoloMatchSideContext(match);
-  const reporterSide = operatorOpenId === sideContext.sideAOpenId ? 'side_a' : 'side_b';
+  const testingSideOverride = getTestingSideOverride(params);
+  const reporterSide = testingSideOverride || (operatorOpenId === sideContext.sideAOpenId ? 'side_a' : 'side_b');
   const opponentOpenId = reporterSide === 'side_a' ? sideContext.sideBOpenId : sideContext.sideAOpenId;
   const reportUid = params.result_report_uid || `RPT-${matchUid}-${timestamp}`;
   const finalResultText = params.final_result_text || getFieldValue(match, ['final_result_text']) || buildSoloMatchResultText(await getOrBuildSoloConquestState(match), sideContext.sideAName, sideContext.sideBName);
@@ -1686,6 +1694,16 @@ function inferWinnerSideFromResultText(resultText, sideContext) {
 function extractScoreFromResultText(resultText = '') {
   const matched = String(resultText).match(/(\d+)\s*[:：]\s*(\d+)/);
   return matched ? `${matched[1]}:${matched[2]}` : '';
+}
+
+function isSoloResultTestingBypassEnabled() {
+  return String(process.env.HS_SOLO_RESULT_TEST_BYPASS || '').toLowerCase() === '1'
+    || String(process.env.HS_SOLO_RESULT_TEST_BYPASS || '').toLowerCase() === 'true';
+}
+
+function getTestingSideOverride(params = {}) {
+  const side = params.test_as_side || params.testing_side || '';
+  return ['side_a', 'side_b'].includes(side) ? side : null;
 }
 
 async function getOrBuildSoloConquestState(match) {
