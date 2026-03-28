@@ -97,6 +97,47 @@ const BITABLE_UTILS = {
   batchCreateRecords,
 };
 
+let CURRENT_EXECUTION_CONTEXT = null;
+
+function beginExecutionContext(context = {}) {
+  CURRENT_EXECUTION_CONTEXT = {
+    writeMode: context.writeMode || 'api',
+    writePlan: [],
+  };
+}
+
+function endExecutionContext() {
+  CURRENT_EXECUTION_CONTEXT = null;
+}
+
+function getExecutionContext() {
+  return CURRENT_EXECUTION_CONTEXT;
+}
+
+function isUserIdentityPlanMode() {
+  return getExecutionContext()?.writeMode === 'user_identity_plan';
+}
+
+function pushWritePlanItem(item) {
+  const execution = getExecutionContext();
+  if (!execution) return;
+  execution.writePlan.push(item);
+}
+
+function withExecutionMeta(result) {
+  const execution = getExecutionContext();
+  if (!execution || execution.writeMode === 'api') {
+    return result;
+  }
+  return {
+    ...result,
+    execution: {
+      write_mode: execution.writeMode,
+      write_plan: execution.writePlan,
+    },
+  };
+}
+
 // ============================================
 // 主入口
 // ============================================
@@ -114,8 +155,11 @@ async function handleCallback(callback, context = {}) {
   }
 
   console.log(`[Callback] Action: ${action}`, params);
+  beginExecutionContext(context);
 
   try {
+    params.tournament_uid = params.tournament_uid || await resolveTournamentUidForAction(action, params);
+
     if (requiresAdminPermission(action)) {
       await checkPermission(context.operatorOpenId, params.tournament_uid, action);
     } else {
@@ -124,66 +168,96 @@ async function handleCallback(callback, context = {}) {
 
     await checkState(action, params);
 
+    let result;
     switch (action) {
       // 报名审核
       case 'approve_registration':
-        return await approveRegistration(params);
+        result = await approveRegistration(params); break;
       case 'reject_registration':
-        return await rejectRegistration(params);
+        result = await rejectRegistration(params); break;
       case 'request_registration_info':
-        return await requestRegistrationInfo(params);
+        result = await requestRegistrationInfo(params); break;
 
       // 卡组审核
       case 'approve_deck_submission':
-        return await approveDeckSubmission(params);
+        result = await approveDeckSubmission(params); break;
       case 'reject_deck_submission':
-        return await rejectDeckSubmission(params);
+        result = await rejectDeckSubmission(params); break;
       case 'publish_decks':
-        return await publishDecks(params);
+        result = await publishDecks(params); break;
       case 'submit_player_registration_form':
-        return await submitPlayerRegistrationForm(params, context);
+        result = await submitPlayerRegistrationForm(params, context); break;
       case 'submit_player_deck_form':
-        return await submitPlayerDeckForm(params, context);
+        result = await submitPlayerDeckForm(params, context); break;
       case 'record_solo_game_result':
-        return await recordSoloGameResult(params, context);
+        result = await recordSoloGameResult(params, context); break;
       case 'submit_match_result_report':
-        return await submitMatchResultReport(params, context);
+        result = await submitMatchResultReport(params, context); break;
       case 'confirm_match_result_report':
-        return await confirmMatchResultReport(params, context);
+        result = await confirmMatchResultReport(params, context); break;
       case 'reject_match_result_report':
-        return await rejectMatchResultReport(params, context);
+        result = await rejectMatchResultReport(params, context); break;
       case 'admin_confirm_match_result_report':
-        return await adminConfirmMatchResultReport(params, context);
+        result = await adminConfirmMatchResultReport(params, context); break;
       case 'escalate_match_result_report_timeout':
-        return await escalateMatchResultReportTimeout(params, context);
+        result = await escalateMatchResultReportTimeout(params, context); break;
 
       // 争议处理
       case 'approve_ai_recommendation':
-        return await approveAIRecommendation(params);
+        result = await approveAIRecommendation(params); break;
       case 'custom_ruling':
-        return await customRuling(params);
+        result = await customRuling(params); break;
 
       // 工作台查询
       case 'list_pending_registrations':
-        return await listPendingRegistrations(params);
+        result = await listPendingRegistrations(params); break;
       case 'list_pending_decks':
-        return await listPendingDecks(params);
+        result = await listPendingDecks(params); break;
       case 'list_pending_disputes':
-        return await listPendingDisputes(params);
+        result = await listPendingDisputes(params); break;
 
       default:
         throw new Error(`Unknown action: ${action}`);
     }
+
+    return withExecutionMeta(result);
   } catch (error) {
     console.error(`[Callback Error] ${action}:`, error);
     await notifyAdmin(`处理失败: ${action}\n错误: ${error.message}`, CONFIG.admin.openId);
     throw error;
+  } finally {
+    endExecutionContext();
   }
 }
 
 // ============================================
 // 权限校验
 // ============================================
+
+async function resolveTournamentUidForAction(action, params = {}) {
+  if (params.tournament_uid) {
+    return params.tournament_uid;
+  }
+
+  const matchUid = params.match_uid || params.match_id;
+  if (matchUid) {
+    const match = await resolveRecordReference(
+      CONFIG.bitable.apps.operation,
+      TABLES.matches,
+      matchUid,
+      ['match_uid']
+    ).catch(() => null);
+    return getFieldValue(match, ['tournament_uid']) || '';
+  }
+
+  const reportUid = params.result_report_uid || params.report_uid;
+  if (reportUid && TABLES.resultReports) {
+    const report = await resolveResultReportReference(reportUid, '').catch(() => null);
+    return getFieldValue(report, ['tournament_uid']) || '';
+  }
+
+  return '';
+}
 
 async function checkPermission(operatorOpenId, tournamentUid, action) {
   if (!tournamentUid) {
@@ -434,7 +508,7 @@ async function checkState(action, params) {
       if ((action === 'confirm_match_result_report' || action === 'reject_match_result_report') && reportStatus !== 'awaiting_opponent_confirmation') {
         throw new Error(`当前赛果状态(${reportStatus})不允许选手确认/拒绝`);
       }
-      if (action === 'admin_confirm_match_result_report' && !['awaiting_admin_review', 'awaiting_opponent_confirmation'].includes(reportStatus)) {
+      if (action === 'admin_confirm_match_result_report' && !['awaiting_admin_review', 'awaiting_opponent_confirmation', 'opponent_rejected'].includes(reportStatus)) {
         throw new Error(`当前赛果状态(${reportStatus})不允许管理员确认`);
       }
       if (action === 'escalate_match_result_report_timeout' && reportStatus !== 'awaiting_opponent_confirmation') {
@@ -1150,11 +1224,14 @@ async function rejectMatchResultReport(params, context = {}) {
   const match = await resolveRecordReference(CONFIG.bitable.apps.operation, TABLES.matches, matchUid, ['match_uid']);
   const sideContext = await getSoloMatchSideContext(match);
   const rejectionReason = params.reject_reason || params.reason || '对手拒绝当前赛果';
+  const actingSide = getTestingSideOverride(params)
+    || ((context.operatorOpenId || params.operator_open_id || '') === sideContext.sideAOpenId ? 'side_a' : 'side_b');
   const dispute = await createDisputeFromRejectedResultReport(match, report, {
     rejectorOpenId: context.operatorOpenId || params.operator_open_id || '',
     rejectionReason,
     timestamp,
     sideContext,
+    actingSide,
   });
 
   await safeUpdateRecord(
@@ -1241,6 +1318,34 @@ async function adminConfirmMatchResultReport(params) {
       updated_at: timestamp,
     }
   );
+
+  const linkedDisputeUid = getFieldValue(report, ['linked_dispute_uid']);
+  if (linkedDisputeUid) {
+    const linkedDispute = await resolveRecordReference(
+      CONFIG.bitable.apps.operation,
+      TABLES.disputes,
+      linkedDisputeUid,
+      ['dispute_uid']
+    ).catch(() => null);
+
+    if (linkedDispute) {
+      await safeUpdateRecord(
+        CONFIG.bitable.apps.operation,
+        TABLES.disputes,
+        linkedDispute.record_id,
+        {
+          dispute_status: 'resolved',
+          admin_decision_status: 'approved',
+          final_ruling_internal: resultText,
+          final_ruling_public: resultText,
+          resolved_by: params.admin_open_id || '',
+          resolved_by_open_id: params.admin_open_id || '',
+          resolved_at: timestamp,
+          applied_to_match: true,
+        }
+      );
+    }
+  }
 
   return {
     success: true,
@@ -1330,7 +1435,7 @@ async function approveAIRecommendation(params) {
     ['dispute_uid']
   );
 
-  await updateRecord(
+  await safeUpdateRecord(
     CONFIG.bitable.apps.operation,
     TABLES.disputes,
     dispute.record_id,
@@ -1362,7 +1467,7 @@ async function customRuling(params) {
     ['dispute_uid']
   );
 
-  await updateRecord(
+  await safeUpdateRecord(
     CONFIG.bitable.apps.operation,
     TABLES.disputes,
     dispute.record_id,
@@ -1502,6 +1607,7 @@ async function createDisputeFromRejectedResultReport(match, report, {
   sideContext,
   sourceType = 'result_report_rejected',
   disputeType = '赛果异议',
+  actingSide = '',
 } = {}) {
   const matchUid = getFieldValue(match, ['match_uid']);
   if (!matchUid) {
@@ -1533,12 +1639,17 @@ async function createDisputeFromRejectedResultReport(match, report, {
 
   const context = sideContext || await getSoloMatchSideContext(match);
   const reporterSide = getFieldValue(report, ['reporter_side']);
+  const resolvedActingSide = actingSide || (reporterSide === 'side_a' ? 'side_b' : 'side_a');
   const reporterUid = reporterSide === 'side_a' ? context.sideAUid : context.sideBUid;
-  const rejectorUid = rejectorOpenId === context.sideAOpenId
+  const rejectorUid = resolvedActingSide === 'side_a'
     ? context.sideAUid
-    : rejectorOpenId === context.sideBOpenId
+    : resolvedActingSide === 'side_b'
       ? context.sideBUid
-      : (reporterSide === 'side_a' ? context.sideBUid : context.sideAUid);
+      : (rejectorOpenId === context.sideAOpenId
+        ? context.sideAUid
+        : rejectorOpenId === context.sideBOpenId
+          ? context.sideBUid
+          : (reporterSide === 'side_a' ? context.sideBUid : context.sideAUid));
   const disputeUid = `DSP-${matchUid}-${timestamp}`;
   const finalResultText = getFieldValue(report, ['final_result_text']) || getFieldValue(match, ['final_result_text']) || '';
 
@@ -1552,8 +1663,8 @@ async function createDisputeFromRejectedResultReport(match, report, {
       tournament_uid: getFieldValue(match, ['tournament_uid']) || '',
       match_uid: matchUid,
       related_result_report_uid: getFieldValue(report, ['result_report_uid']) || '',
-      submitted_by_side: rejectorOpenId === context.sideAOpenId ? 'side_a' : rejectorOpenId === context.sideBOpenId ? 'side_b' : 'admin',
-      submitted_by_name: rejectorOpenId === context.sideAOpenId ? context.sideAName : rejectorOpenId === context.sideBOpenId ? context.sideBName : '系统',
+      submitted_by_side: resolvedActingSide || 'admin',
+      submitted_by_name: resolvedActingSide === 'side_a' ? context.sideAName : resolvedActingSide === 'side_b' ? context.sideBName : '系统',
       submitted_by_open_id: rejectorOpenId || '',
       issue_type: sourceType === 'result_report_timeout' ? 'other' : 'result_disagreement',
       issue_summary: disputeType,
@@ -1905,6 +2016,16 @@ async function safeUpdateRecord(appToken, tableId, recordId, fields) {
     if (!appToken || !tableId || !recordId) {
       return null;
     }
+    if (isUserIdentityPlanMode()) {
+      pushWritePlanItem({
+        kind: 'update',
+        appToken,
+        tableId,
+        recordId,
+        fields,
+      });
+      return { planned: true, kind: 'update', record_id: recordId, fields };
+    }
     return await updateRecord(appToken, tableId, recordId, fields);
   } catch (error) {
     console.warn('[safeUpdateRecord] skipped:', error.message);
@@ -1916,6 +2037,15 @@ async function safeCreateRecord(appToken, tableId, fields) {
   try {
     if (!appToken || !tableId) {
       return null;
+    }
+    if (isUserIdentityPlanMode()) {
+      pushWritePlanItem({
+        kind: 'create',
+        appToken,
+        tableId,
+        fields,
+      });
+      return { planned: true, kind: 'create', fields };
     }
     return await createRecord(appToken, tableId, fields);
   } catch (error) {
@@ -1941,7 +2071,29 @@ async function safeUpsertByUid(appToken, tableId, uidField, uidValue, fields) {
     });
 
     if (existing?.length) {
+      if (isUserIdentityPlanMode()) {
+        pushWritePlanItem({
+          kind: 'update',
+          appToken,
+          tableId,
+          recordId: existing[0].record_id,
+          fields,
+          upsertBy: { uidField, uidValue },
+        });
+        return { planned: true, kind: 'update', record_id: existing[0].record_id, fields };
+      }
       return await updateRecord(appToken, tableId, existing[0].record_id, fields);
+    }
+
+    if (isUserIdentityPlanMode()) {
+      pushWritePlanItem({
+        kind: 'create',
+        appToken,
+        tableId,
+        fields,
+        upsertBy: { uidField, uidValue },
+      });
+      return { planned: true, kind: 'create', fields };
     }
 
     return await createRecord(appToken, tableId, fields);
@@ -1987,13 +2139,27 @@ async function updateDecksVisibility(submissionId, visibility, timestamp) {
   }
 }
 
+function unwrapFieldValue(value) {
+  if (Array.isArray(value)) {
+    if (value.length === 1 && value[0] && typeof value[0] === 'object' && 'text' in value[0]) {
+      return value[0].text;
+    }
+    if (value.every(item => item && typeof item === 'object' && 'text' in item)) {
+      return value.map(item => item.text).join('');
+    }
+    return value;
+  }
+  return value;
+}
+
 function getFieldValue(record, candidateFields = []) {
   if (!record?.fields) {
     return undefined;
   }
 
   for (const fieldName of candidateFields) {
-    const value = record.fields[fieldName];
+    const rawValue = record.fields[fieldName];
+    const value = unwrapFieldValue(rawValue);
     if (value !== undefined && value !== null && value !== '') {
       return value;
     }

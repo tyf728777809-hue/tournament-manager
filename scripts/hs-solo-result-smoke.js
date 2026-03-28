@@ -25,6 +25,7 @@ function usage() {
   --timeout <minutes>      提交后确认时限（submit 可传）
   --force true             timeout 时忽略截止时间直接升级
   --as-side <side_a|side_b> 仅联调用，配合 HS_SOLO_RESULT_TEST_BYPASS=1 模拟双方身份
+  --write-mode <api|user_identity_plan>  写表模式，默认 api
 
 示例：
   node scripts/hs-solo-result-smoke.js submit --match MATCH-HS202603-TEST-SOLO-001 --operator ou_xxx
@@ -55,6 +56,7 @@ function buildActionPayload(step, args) {
   const result_report_uid = args.report;
   const operator_open_id = args.operator;
   const test_as_side = args['as-side'];
+  const writeMode = args['write-mode'] || 'api';
 
   switch (step) {
     case 'submit':
@@ -68,7 +70,7 @@ function buildActionPayload(step, args) {
           note: args.reason || '',
           test_as_side,
         },
-        context: { operatorOpenId: operator_open_id },
+        context: { operatorOpenId: operator_open_id, writeMode },
       };
     case 'confirm':
       return {
@@ -78,7 +80,7 @@ function buildActionPayload(step, args) {
           result_report_uid,
           test_as_side,
         },
-        context: { operatorOpenId: operator_open_id },
+        context: { operatorOpenId: operator_open_id, writeMode },
       };
     case 'reject':
       return {
@@ -89,7 +91,7 @@ function buildActionPayload(step, args) {
           reject_reason: args.reason || 'smoke test rejection',
           test_as_side,
         },
-        context: { operatorOpenId: operator_open_id },
+        context: { operatorOpenId: operator_open_id, writeMode },
       };
     case 'timeout':
       return {
@@ -100,7 +102,7 @@ function buildActionPayload(step, args) {
           reason: args.reason || 'smoke test timeout escalation',
           force: args.force === 'true' || args.force === true,
         },
-        context: { operatorOpenId: operator_open_id || args.admin },
+        context: { operatorOpenId: operator_open_id || args.admin, writeMode },
       };
     case 'admin-confirm':
       return {
@@ -110,7 +112,7 @@ function buildActionPayload(step, args) {
           result_report_uid,
           admin_open_id: args.admin || operator_open_id,
         },
-        context: { operatorOpenId: args.admin || operator_open_id },
+        context: { operatorOpenId: args.admin || operator_open_id, writeMode },
       };
     default:
       throw new Error(`未知 step: ${step}`);
@@ -120,6 +122,7 @@ function buildActionPayload(step, args) {
 (async () => {
   const args = parseArgs(process.argv.slice(2));
   const step = args._;
+  const writeMode = args['write-mode'] || 'api';
 
   if (!step || ['-h', '--help', 'help'].includes(step)) {
     usage();
