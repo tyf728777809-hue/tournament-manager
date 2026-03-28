@@ -1315,16 +1315,27 @@ async function escalateMatchResultReportTimeout(params, context = {}) {
 async function approveAIRecommendation(params) {
   const { dispute_id, ai_recommendation, admin_open_id } = params;
   const timestamp = Date.now();
+  const dispute = await resolveRecordReference(
+    CONFIG.bitable.apps.operation,
+    TABLES.disputes,
+    dispute_id,
+    ['dispute_uid']
+  );
 
   await updateRecord(
     CONFIG.bitable.apps.operation,
     TABLES.disputes,
-    dispute_id,
+    dispute.record_id,
     {
-      status: 'resolved',
-      final_ruling: ai_recommendation,
-      reviewed_by: admin_open_id,
-      reviewed_at: timestamp,
+      dispute_status: 'resolved',
+      admin_decision_status: 'approved',
+      ai_recommendation: ai_recommendation,
+      final_ruling_internal: ai_recommendation,
+      final_ruling_public: ai_recommendation,
+      resolved_by: admin_open_id,
+      resolved_by_open_id: admin_open_id,
+      resolved_at: timestamp,
+      applied_to_match: true,
     }
   );
 
@@ -1336,16 +1347,26 @@ async function approveAIRecommendation(params) {
 async function customRuling(params) {
   const { dispute_id, ruling, admin_open_id } = params;
   const timestamp = Date.now();
+  const dispute = await resolveRecordReference(
+    CONFIG.bitable.apps.operation,
+    TABLES.disputes,
+    dispute_id,
+    ['dispute_uid']
+  );
 
   await updateRecord(
     CONFIG.bitable.apps.operation,
     TABLES.disputes,
-    dispute_id,
+    dispute.record_id,
     {
-      status: 'resolved',
-      final_ruling: ruling,
-      reviewed_by: admin_open_id,
-      reviewed_at: timestamp,
+      dispute_status: 'resolved',
+      admin_decision_status: 'modified',
+      final_ruling_internal: ruling,
+      final_ruling_public: ruling,
+      resolved_by: admin_open_id,
+      resolved_by_open_id: admin_open_id,
+      resolved_at: timestamp,
+      applied_to_match: true,
     }
   );
 
@@ -1411,10 +1432,10 @@ async function listPendingDisputes(params) {
         conjunction: 'and',
         conditions: [
           { field_name: 'tournament_uid', operator: 'is', value: [tournament_uid] },
-          { field_name: 'status', operator: 'is', value: ['admin_review'] },
+          { field_name: 'dispute_status', operator: 'is', value: ['awaiting_admin_decision'] },
         ],
       },
-      sort: [{ field_name: 'created_at', desc: false }],
+      sort: [{ field_name: 'resolved_at', desc: false }],
     }
   );
 
@@ -1522,19 +1543,28 @@ async function createDisputeFromRejectedResultReport(match, report, {
       dispute_uid: disputeUid,
       tournament_uid: getFieldValue(match, ['tournament_uid']) || '',
       match_uid: matchUid,
-      status: 'admin_review',
-      dispute_type: disputeType,
-      source_type: sourceType,
-      opponent_name_snapshot: reporterSide === 'side_a' ? context.sideAName : context.sideBName,
-      description: `赛果争议：${finalResultText || '未填写赛果'}\n原因：${rejectionReason || '未填写'}`,
-      requested_resolution: '请管理员核实并确认最终赛果',
-      occurred_at: timestamp,
-      created_at: timestamp,
-      plaintiff_player_uid: rejectorUid || '',
-      defendant_player_uid: reporterUid || '',
       related_result_report_uid: getFieldValue(report, ['result_report_uid']) || '',
-      evidence_summary: getFieldValue(report, ['internal_note']) || '',
-      final_ruling: '',
+      submitted_by_side: rejectorOpenId === context.sideAOpenId ? 'side_a' : rejectorOpenId === context.sideBOpenId ? 'side_b' : 'admin',
+      submitted_by_name: rejectorOpenId === context.sideAOpenId ? context.sideAName : rejectorOpenId === context.sideBOpenId ? context.sideBName : '系统',
+      submitted_by_open_id: rejectorOpenId || '',
+      issue_type: sourceType === 'result_report_timeout' ? 'other' : 'result_disagreement',
+      issue_summary: disputeType,
+      issue_detail: `赛果争议：${finalResultText || '未填写赛果'}\n原因：${rejectionReason || '未填写'}`,
+      dispute_status: 'awaiting_admin_decision',
+      admin_decision_status: 'pending',
+      ai_recommendation: '',
+      ai_rule_reference: '',
+      final_ruling_internal: '',
+      final_ruling_public: '',
+      applied_to_match: false,
+      public_announced: false,
+      internal_note: [
+        `source_type=${sourceType}`,
+        `opponent_name=${reporterSide === 'side_a' ? context.sideAName : context.sideBName}`,
+        `rejector_uid=${rejectorUid || ''}`,
+        `reporter_uid=${reporterUid || ''}`,
+        `evidence_summary=${getFieldValue(report, ['internal_note']) || ''}`,
+      ].join('; '),
     }
   );
 

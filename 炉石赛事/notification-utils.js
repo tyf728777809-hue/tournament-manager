@@ -507,19 +507,20 @@ async function notifyDisputeParties(disputeId, title, content, bitableUtils) {
     bitableUtils
   );
 
-  const plaintiff = await resolvePlayerRecord(
-    getFieldValue(dispute, ['plaintiff_player_uid']),
-    bitableUtils
-  );
-  const defendant = await resolvePlayerRecord(
-    getFieldValue(dispute, ['defendant_player_uid']),
-    bitableUtils
-  );
+  const directOpenId = getFieldValue(dispute, ['submitted_by_open_id']);
+  const internalNote = String(getFieldValue(dispute, ['internal_note']) || '');
+  const reporterUid = (internalNote.match(/reporter_uid=([^;]+)/) || [])[1] || '';
+  const rejectorUid = (internalNote.match(/rejector_uid=([^;]+)/) || [])[1] || '';
+
+  const reporter = reporterUid ? await resolvePlayerRecord(reporterUid, bitableUtils) : null;
+  const rejector = rejectorUid ? await resolvePlayerRecord(rejectorUid, bitableUtils) : null;
 
   const message = `${title}\n\n${content}`;
-  const targets = [plaintiff, defendant]
-    .map(record => getFieldValue(record, ['feishu_open_id', 'user_open_id', 'open_id']))
-    .filter(Boolean);
+  const targets = [...new Set([
+    directOpenId,
+    getFieldValue(reporter, ['feishu_open_id', 'user_open_id', 'open_id']),
+    getFieldValue(rejector, ['feishu_open_id', 'user_open_id', 'open_id']),
+  ].filter(Boolean))];
 
   const results = await Promise.all(
     targets.map(openId => sendNotification(openId, message).catch(error => ({ success: false, error: error.message })))
