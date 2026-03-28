@@ -35,8 +35,7 @@
 1. 准备第二个真实 Feishu 身份样本，补一轮严格双人 `confirm / reject`
 2. 个人赛赛果链路核心分支（`submit / confirm / reject / timeout / admin-confirm`）已验证可通过 `context.prefetched` 在无 shell token 情况下产出 `write_plan`
 3. 已补统一入口脚本、prefetched 组装器、五条端到端模板（含 submit），以及《个人赛赛果链路操作总入口-v1》；并已新增《个人赛赛果真实联调-checklist-v1》与《个人赛第二真实Feishu-open_id样本方案-v1》
-4. 下一步优先准备第二个真实 Feishu open_id 样本，补严格双人 `confirm / reject`；视情况补测试样本复位动作，避免旧 dispute / completed_at / latest_result_report_uid 干扰重复联调观测
-
+4. 第二个真实 Feishu open_id 样本已完成准备：已将 `solo_test_002 / P-HS202603TESTSOLO-OPP001` 的 `players.feishu_open_id`、`registrations.submitted_by_open_id`、`deckSubmissions.submitted_by_open_id` 同步改为 `ou_83c1ede5ca9e47affd4b337781a6e741`（史振东），并回读确认成功；`MATCH-HS202603-TEST-SOLO-001` 也已完成最小复位。随后已完成严格双人真实联调的两轮闭环：`submit -> confirm` 与 `submit -> reject` 都已跑通，确认第二真实 open_id 可作为对手方分别完成赛果确认与拒绝，并能正确产出 dispute。下一步可视需要继续补 `timeout -> admin-confirm` 的真实样本收口，或整理摘要/提交文档。
 ---
 
 _此文件每次会话更新，关键信息会定期整理到 MEMORY.md_
