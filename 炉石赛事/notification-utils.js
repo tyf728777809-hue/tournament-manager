@@ -169,6 +169,134 @@ async function sendGroupCardMessage(chatId, card) {
   return await sendGroupMessage(chatId, card, 'interactive');
 }
 
+function buildMatchResultConfirmationCard({
+  tournamentName = '当前赛事',
+  matchUid,
+  resultReportUid,
+  reporterName = '对手',
+  opponentName = '你',
+  finalResultText = '',
+  reporterSide = '',
+  note = '',
+  deadlineText = '',
+} = {}) {
+  const extraLines = [];
+  if (deadlineText) extraLines.push(`**确认时限：** ${deadlineText}`);
+  if (note) extraLines.push(`**备注：** ${note}`);
+
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      template: 'blue',
+      title: {
+        tag: 'plain_text',
+        content: '🧾 对手赛果确认',
+      },
+    },
+    elements: [
+      {
+        tag: 'div',
+        text: {
+          tag: 'lark_md',
+          content: [
+            `**赛事：** ${tournamentName}`,
+            `**对局：** ${reporterName} vs ${opponentName}`,
+            `**对手提交结果：** ${finalResultText || '未填写'}`,
+            ...extraLines,
+          ].join('\n'),
+        },
+      },
+      {
+        tag: 'action',
+        actions: [
+          {
+            tag: 'button',
+            type: 'primary',
+            text: { tag: 'plain_text', content: '✅ 确认赛果' },
+            value: {
+              action: 'confirm_match_result_report',
+              match_uid: matchUid,
+              result_report_uid: resultReportUid,
+              reporter_side: reporterSide,
+            },
+          },
+          {
+            tag: 'button',
+            type: 'danger',
+            text: { tag: 'plain_text', content: '❌ 拒绝并发起争议' },
+            value: {
+              action: 'reject_match_result_report',
+              match_uid: matchUid,
+              result_report_uid: resultReportUid,
+              reporter_side: reporterSide,
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+async function sendMatchResultConfirmationCard(openId, payload = {}) {
+  return await sendCardMessage(openId, buildMatchResultConfirmationCard(payload));
+}
+
+function buildResultReportAdminEscalationCard({
+  tournamentName = '当前赛事',
+  matchUid,
+  resultReportUid,
+  sideAName = 'A方',
+  sideBName = 'B方',
+  finalResultText = '',
+  reason = '对手超时未确认',
+  disputeUid = '',
+} = {}) {
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      template: 'red',
+      title: {
+        tag: 'plain_text',
+        content: '⏰ 赛果待管理员处理',
+      },
+    },
+    elements: [
+      {
+        tag: 'div',
+        text: {
+          tag: 'lark_md',
+          content: [
+            `**赛事：** ${tournamentName}`,
+            `**对局：** ${sideAName} vs ${sideBName}`,
+            `**当前赛果：** ${finalResultText || '未填写'}`,
+            `**原因：** ${reason}`,
+            disputeUid ? `**关联争议：** ${disputeUid}` : null,
+          ].filter(Boolean).join('\n'),
+        },
+      },
+      {
+        tag: 'action',
+        actions: [
+          {
+            tag: 'button',
+            type: 'primary',
+            text: { tag: 'plain_text', content: '✅ 管理员确认赛果' },
+            value: {
+              action: 'admin_confirm_match_result_report',
+              match_uid: matchUid,
+              result_report_uid: resultReportUid,
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+async function sendResultReportAdminEscalationCard(openId, payload = {}) {
+  return await sendCardMessage(openId, buildResultReportAdminEscalationCard(payload));
+}
+
 // ============================================
 // 4. 特定场景通知
 // ============================================
@@ -487,6 +615,8 @@ module.exports = {
   sendGroupMessageByTournament,
   sendCardMessage,
   sendGroupCardMessage,
+  sendMatchResultConfirmationCard,
+  sendResultReportAdminEscalationCard,
   pushDeckSubmissionEntry,
   generatePublishConfirmation,
   createAnnouncement,
