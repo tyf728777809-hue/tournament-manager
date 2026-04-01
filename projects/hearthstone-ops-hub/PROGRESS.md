@@ -58,6 +58,7 @@
 - [x] 增加 `/setup` 健康检查面板（环境变量 + session + tasks 查询）
 - [x] 补 seed 导入验证 SQL 与 E2E 联调清单
 - [x] 增加 seed SQL 自动生成脚本（按 user_id 生成可执行 SQL）
+- [x] 补下一步执行指南与 next-step 自检脚本
 - [ ] 接上真实登录回流与 session 持久化验证
 
 ## 关键决策

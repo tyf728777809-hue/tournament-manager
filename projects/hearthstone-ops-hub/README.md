@@ -30,6 +30,8 @@
 - `query-seed-verification.sql`：seed 导入后的快速验证 SQL
 - `SEED-RUNBOOK.md`：最小验证集导入与校验步骤
 - `E2E-CHECKLIST.md`：从环境变量到真实写回的端到端检查清单
+- `RUN-NEXT.md`：下一步可直接执行的最短操作指南
+- `scripts/print-next-steps.mjs`：根据当前文件状态输出下一步建议
 
 ### Seed 模板
 - `seed-events-v1.template.json`
