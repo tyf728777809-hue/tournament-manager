@@ -56,6 +56,7 @@
 - [x] 增加本地联调自检脚本与说明（`npm run check:env` / `LOCAL-SETUP.md`）
 - [x] 补 seed 导入操作手册与当前用户 ID 查询 SQL
 - [x] 增加 `/setup` 健康检查面板（环境变量 + session + tasks 查询）
+- [x] 补 seed 导入验证 SQL 与 E2E 联调清单
 - [ ] 接上真实登录回流与 session 持久化验证
 
 ## 关键决策
