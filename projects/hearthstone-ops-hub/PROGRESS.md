@@ -55,6 +55,7 @@
 - [x] 增加 Supabase 联调准备页（环境变量 / 登录状态 / 操作顺序检查）
 - [x] 增加本地联调自检脚本与说明（`npm run check:env` / `LOCAL-SETUP.md`）
 - [x] 补 seed 导入操作手册与当前用户 ID 查询 SQL
+- [x] 增加 `/setup` 健康检查面板（环境变量 + session + tasks 查询）
 - [ ] 接上真实登录回流与 session 持久化验证
 
 ## 关键决策
