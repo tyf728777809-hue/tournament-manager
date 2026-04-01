@@ -47,6 +47,11 @@
 - 已补 `/重发战报 [场次]` 本地实现，并补充已结束场次样本，当前可成功重发第 4 场测试战报
 - 已再次验证 real 模式阻塞点：宿主环境当前仍缺少 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`，执行 `BITABLE_CLIENT_MODE=real node src/index.js` 会在启动期直接失败，真实链路暂无法联调
 - 已补 `/公示卡组` 命令实现，并在 mock 数据层加入 `deckSubmission` 测试记录；当前本地 mock 演示已可成功执行 `/公示卡组`
+- 用户已明确要求直接复用当前 OpenClaw 飞书通道所用的 appId/appSecret 继续推进 real 模式，无需另行新配一套凭据
+- 已验证：当前 OpenClaw 飞书应用凭据可成功获取 tenant_access_token，并可**只读**读取测试版 Bitable 的真实数据
+- 已定位 real 模式“读到 0 条记录”的根因：Bitable 文本字段真实返回为富文本数组，而现有命令层按纯字符串判等；现已在 `real-client.js` 补齐字段归一化
+- 已完成 real 模式首轮联调：`/检查注册` 读链路可成功执行；`/暂停顺延`、`/恢复顺延` 在真实表写入阶段失败，当前确认问题已从“缺凭据”推进到“当前飞书应用对该 Bitable 仅读可用、写入返回 Forbidden”
+- 已补 real-client 异常兜底：Bitable API 写失败时不再直接抛死整个命令链路，而是返回 `ok: false` 供上层指令优雅处理
 
 ---
 
