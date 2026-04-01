@@ -46,7 +46,14 @@
 - [x] 启动前端骨架开发
 - [x] 接入 Supabase 环境变量与真实数据读取（含 mock fallback）
 - [ ] 准备首次部署到 Vercel
-- [ ] 增加任务状态更新能力
+- [x] 增加任务状态更新能力（支持前端交互与 Supabase 直连尝试写回）
+- [x] 补 Supabase Auth / RLS 方案文档
+- [x] 生成带 user_id 的 SQL seed 导入模板
+- [x] 接入 Supabase 登录态骨架（Magic Link / OTP 页面与首页状态展示）
+- [x] 补登录前后行为提示（首页状态、任务页写回前提示、退出登录）
+- [x] 增加登录回流检查面板（用于确认 Magic Link 后是否拿到 session）
+- [x] 增加 Supabase 联调准备页（环境变量 / 登录状态 / 操作顺序检查）
+- [ ] 接上真实登录回流与 session 持久化验证
 
 ## 关键决策
 | 日期 | 决策内容 | 决策原因 |
