@@ -7,7 +7,8 @@ async function demo(router) {
     '/检查注册',
     '/暂停顺延',
     '/恢复顺延',
-    '/手动签到 2'
+    '/手动签到 2',
+    '/重发战报 4'
   ];
 
   for (const sample of samples) {

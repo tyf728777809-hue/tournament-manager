@@ -159,6 +159,27 @@ export function createMockRecords(context) {
           战报发送状态: '未发送',
           备注: '测试场次3，顺延链尾'
         }
+      },
+      {
+        recordId: 'recvfzREPORT01',
+        fields: {
+          MatchID: 'MATCH_TEST_004',
+          TournamentID: context.tournamentId,
+          场次序号: 4,
+          轮次: '测试轮次',
+          BO类型: 'BO5',
+          赛点阈值: 2,
+          MatchStatus: '已结束',
+          A大分: 3,
+          B大分: 1,
+          小局明细: '1-0, 2-0, 2-1, 3-1',
+          A队签到: true,
+          B队签到: true,
+          是否已触发顺延: false,
+          下一场MatchID: '',
+          战报发送状态: '失败',
+          备注: '测试场次4，已结束，供重发战报测试'
+        }
       }
     ],
     adminWhitelist: [
