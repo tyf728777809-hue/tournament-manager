@@ -96,6 +96,71 @@ export function createMockRecords(context) {
         }
       }
     ],
+    matchResults: [
+      {
+        recordId: 'recvfyW6I8Zx95',
+        fields: {
+          MatchID: 'MATCH_TEST_001',
+          TournamentID: context.tournamentId,
+          场次序号: 1,
+          轮次: '测试轮次',
+          BO类型: 'BO5',
+          赛点阈值: 2,
+          MatchStatus: '未开启',
+          A大分: 0,
+          B大分: 0,
+          小局明细: '',
+          A队签到: false,
+          B队签到: false,
+          是否已触发顺延: false,
+          下一场MatchID: 'MATCH_TEST_002',
+          战报发送状态: '未发送',
+          备注: '测试场次1，指向场次2'
+        }
+      },
+      {
+        recordId: 'recvfyW6I8mCJT',
+        fields: {
+          MatchID: 'MATCH_TEST_002',
+          TournamentID: context.tournamentId,
+          场次序号: 2,
+          轮次: '测试轮次',
+          BO类型: 'BO5',
+          赛点阈值: 2,
+          MatchStatus: '未开启',
+          A大分: 0,
+          B大分: 0,
+          小局明细: '',
+          A队签到: false,
+          B队签到: false,
+          是否已触发顺延: false,
+          下一场MatchID: 'MATCH_TEST_003',
+          战报发送状态: '未发送',
+          备注: '测试场次2，指向场次3'
+        }
+      },
+      {
+        recordId: 'recvfyW6I8nOyC',
+        fields: {
+          MatchID: 'MATCH_TEST_003',
+          TournamentID: context.tournamentId,
+          场次序号: 3,
+          轮次: '测试轮次',
+          BO类型: 'BO5',
+          赛点阈值: 2,
+          MatchStatus: '未开启',
+          A大分: 0,
+          B大分: 0,
+          小局明细: '',
+          A队签到: false,
+          B队签到: false,
+          是否已触发顺延: false,
+          下一场MatchID: '',
+          战报发送状态: '未发送',
+          备注: '测试场次3，顺延链尾'
+        }
+      }
+    ],
     adminWhitelist: [
       {
         recordId: 'recvfz1YJSkcO0',

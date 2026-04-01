@@ -1,5 +1,6 @@
 import { createBitableClient } from '../bitable/client.js';
 import { checkRegistration } from './check-registration.js';
+import { manualCheckin } from './manual-checkin.js';
 import { pauseRolling, resumeRolling } from './pause-rolling.js';
 
 function notImplemented(name) {
@@ -23,7 +24,7 @@ export function createCommandRouter({ context }) {
     '/公示卡组': notImplemented('/公示卡组'),
     '/暂停顺延': (payload) => pauseRolling({ context, bitable, payload }),
     '/恢复顺延': (payload) => resumeRolling({ context, bitable, payload }),
-    '/手动签到': notImplemented('/手动签到'),
+    '/手动签到': (payload) => manualCheckin({ context, bitable, payload }),
     '/重发战报': notImplemented('/重发战报')
   };
 
