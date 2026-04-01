@@ -1,76 +1,15 @@
-import { createMockRecords } from '../config/mock-data.js';
-
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-function generateRecordId(prefix = 'rec') {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
+import { createMockBitableClient } from './mock-client.js';
+import { createRealBitableClient } from './real-client.js';
 
 export function createBitableClient({ appToken, tables, context }) {
-  const store = createMockRecords(context);
+  const mode = process.env.BITABLE_CLIENT_MODE || 'mock';
 
-  function getTableStore(tableKey) {
-    if (!tables[tableKey]) {
-      throw new Error(`Unknown table key: ${tableKey}`);
+  if (mode === 'real') {
+    if (!process.env.FEISHU_APP_ID || !process.env.FEISHU_APP_SECRET) {
+      throw new Error('BITABLE_CLIENT_MODE=real 但缺少 FEISHU_APP_ID / FEISHU_APP_SECRET');
     }
-    if (!store[tableKey]) {
-      store[tableKey] = [];
-    }
-    return store[tableKey];
+    return createRealBitableClient({ appToken, tables, context });
   }
 
-  return {
-    appToken,
-    tables,
-    debugDump() {
-      return clone(store);
-    },
-    async listRecords(tableKey, predicate = null) {
-      const records = getTableStore(tableKey);
-      const filtered = typeof predicate === 'function' ? records.filter(predicate) : records;
-      return {
-        ok: true,
-        tableKey,
-        tableId: tables[tableKey],
-        records: clone(filtered)
-      };
-    },
-    async createRecord(tableKey, fields) {
-      const records = getTableStore(tableKey);
-      const record = {
-        recordId: generateRecordId(tableKey),
-        fields: clone(fields)
-      };
-      records.push(record);
-      return {
-        ok: true,
-        tableKey,
-        tableId: tables[tableKey],
-        record: clone(record)
-      };
-    },
-    async updateRecord(tableKey, recordId, fields) {
-      const records = getTableStore(tableKey);
-      const target = records.find((item) => item.recordId === recordId);
-      if (!target) {
-        return {
-          ok: false,
-          tableKey,
-          tableId: tables[tableKey],
-          recordId,
-          fields,
-          message: `Record not found: ${recordId}`
-        };
-      }
-      Object.assign(target.fields, clone(fields));
-      return {
-        ok: true,
-        tableKey,
-        tableId: tables[tableKey],
-        record: clone(target)
-      };
-    }
-  };
+  return createMockBitableClient({ appToken, tables, context });
 }

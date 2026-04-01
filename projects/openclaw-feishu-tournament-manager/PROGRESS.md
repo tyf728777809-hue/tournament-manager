@@ -3,7 +3,7 @@
 ## 项目信息
 - **项目名称**: OpenClaw x 飞书机器人多赛事管理系统
 - **创建时间**: 2026-04-02 00:36 (Asia/Shanghai)
-- **最后更新**: 2026-04-02 02:39 (Asia/Shanghai)
+- **最后更新**: 2026-04-02 02:50 (Asia/Shanghai)
 
 ## 项目目标
 基于 OpenClaw + 飞书机器人 + 多维表格，构建一个支持多赛事并发、队长通知制、比分驱动顺延签到、人工风控审核的全链路赛事管理系统，并产出可直接进入设计与开发阶段的增强版 PRD。
@@ -41,6 +41,8 @@
 - 已初始化代码骨架目录：`projects/openclaw-feishu-tournament-manager/app/`
 - 已创建本地启动入口、赛事上下文配置、指令路由骨架、Bitable client 占位层，并完成启动验证
 - 已补本地 mock 数据层，并跑通管理员白名单校验、`/检查注册`、`/暂停顺延`、`/恢复顺延` 指令闭环
+- 已补命令解析层 `commands/parser.js` 与 Bitable client 双模式切换（mock / real）
+- 已确认当前宿主环境缺少 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`，因此 real 模式尚未实际验证
 
 ---
 
@@ -61,6 +63,8 @@
 - [x] 实现 `/检查注册` 指令（本地 mock 数据版）
 - [x] 实现 `/暂停顺延` 与 `/恢复顺延` 指令（本地 mock 数据版）
 - [ ] 将本地 mock 数据层替换为真实 Bitable 读写
+- [x] 增加命令解析层与数据层模式切换（mock / real）
+- [ ] 配置 FEISHU_APP_ID / FEISHU_APP_SECRET 后验证 real 模式
 
 ## 关键决策
 | 日期 | 决策内容 | 决策原因 |
