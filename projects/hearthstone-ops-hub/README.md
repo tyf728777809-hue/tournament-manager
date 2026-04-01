@@ -35,6 +35,7 @@
 - `seed-events-v1.template.json`
 - `seed-tasks-v1.template.json`
 - `seed-daily-checklists-v1.template.json`
+- `scripts/generate-seed-sql.mjs`：根据 Supabase user_id 自动生成可执行 seed SQL
 
 ### 前端项目
 - `app/`

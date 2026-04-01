@@ -32,13 +32,28 @@
 
 ## 三、替换 SQL 模板中的 user_id
 
-打开：
+你可以手工替换：
 - `seed-import-sql-template-v1.sql`
 
 把其中所有：
 - `YOUR_USER_ID_HERE`
 
 替换成你真实的 Supabase `auth.users.id`。
+
+也可以直接用自动生成脚本：
+
+```bash
+node scripts/generate-seed-sql.mjs <SUPABASE_USER_ID>
+```
+
+例如：
+
+```bash
+node scripts/generate-seed-sql.mjs 12345678-aaaa-bbbb-cccc-1234567890ab
+```
+
+默认会生成：
+- `seed-import.generated.sql`
 
 ---
 
