@@ -10,7 +10,7 @@ export function createMockRecords(context) {
           BitableAppToken: context.appToken,
           赛事状态: '筹备中',
           顺延开关: true,
-          公示开关: false,
+          公示开关: true,
           首场签到开启方式: '手动',
           默认签到超时分钟数: 10,
           赛事备注: '测试环境初始化记录'
@@ -179,6 +179,52 @@ export function createMockRecords(context) {
           下一场MatchID: '',
           战报发送状态: '失败',
           备注: '测试场次4，已结束，供重发战报测试'
+        }
+      }
+    ],
+    deckSubmission: [
+      {
+        recordId: 'recdeckTEST001',
+        fields: {
+          SubmissionID: 'SUB_TEST_001',
+          TournamentID: context.tournamentId,
+          TeamID: 'TEAM_TEST_A',
+          提交人: [{ id: 'ou_914e6141a81eb6da2602875aee631269' }],
+          提交时间: '2026-04-02T02:00:00.000Z',
+          版本号: 1,
+          卡组代码集合: 'AAECAZICAAAA\nAAECAf0EAAAA',
+          卡组图片集合: [],
+          职业数量校验: '通过',
+          Deckstring校验结果: '合法',
+          审核状态: '通过',
+          审核人: [{ id: 'ou_914e6141a81eb6da2602875aee631269' }],
+          审核时间: '2026-04-02T02:10:00.000Z',
+          驳回原因: '',
+          是否当前有效版本: true,
+          是否已公示: false,
+          备注: '测试战队A的有效卡组版本'
+        }
+      },
+      {
+        recordId: 'recdeckTEST002',
+        fields: {
+          SubmissionID: 'SUB_TEST_002',
+          TournamentID: context.tournamentId,
+          TeamID: 'TEAM_TEST_B',
+          提交人: [{ id: 'ou_914e6141a81eb6da2602875aee631269' }],
+          提交时间: '2026-04-02T02:05:00.000Z',
+          版本号: 1,
+          卡组代码集合: 'AAECAQcAAAAA\nAAECAdfXAwAA',
+          卡组图片集合: [],
+          职业数量校验: '通过',
+          Deckstring校验结果: '合法',
+          审核状态: '通过',
+          审核人: [{ id: 'ou_914e6141a81eb6da2602875aee631269' }],
+          审核时间: '2026-04-02T02:12:00.000Z',
+          驳回原因: '',
+          是否当前有效版本: true,
+          是否已公示: false,
+          备注: '测试战队B的有效卡组版本'
         }
       }
     ],

@@ -45,6 +45,8 @@
 - 已确认当前宿主环境缺少 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`，因此 real 模式尚未实际验证
 - 已补 `/手动签到 [场次]` 本地实现，并修复 mock 数据层缺少 `matchResults` 的空洞，当前可成功命中第 2 场测试赛程
 - 已补 `/重发战报 [场次]` 本地实现，并补充已结束场次样本，当前可成功重发第 4 场测试战报
+- 已再次验证 real 模式阻塞点：宿主环境当前仍缺少 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`，执行 `BITABLE_CLIENT_MODE=real node src/index.js` 会在启动期直接失败，真实链路暂无法联调
+- 已补 `/公示卡组` 命令实现，并在 mock 数据层加入 `deckSubmission` 测试记录；当前本地 mock 演示已可成功执行 `/公示卡组`
 
 ---
 
@@ -69,6 +71,7 @@
 - [ ] 配置 FEISHU_APP_ID / FEISHU_APP_SECRET 后验证 real 模式
 - [x] 实现 `/手动签到 [场次]` 指令（本地 mock 数据版）
 - [x] 实现 `/重发战报 [场次]` 指令（本地 mock 数据版）
+- [x] 实现 `/公示卡组` 指令（本地 mock 数据版）
 
 ## 关键决策
 | 日期 | 决策内容 | 决策原因 |

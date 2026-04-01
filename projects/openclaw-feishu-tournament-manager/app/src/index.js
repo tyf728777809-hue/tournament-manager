@@ -5,6 +5,7 @@ import { parseCommandText } from './commands/parser.js';
 async function demo(router) {
   const samples = [
     '/检查注册',
+    '/公示卡组',
     '/暂停顺延',
     '/恢复顺延',
     '/手动签到 2',
