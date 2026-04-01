@@ -1,0 +1,42 @@
+[
+  {
+    "check_date": "2025-04-01",
+    "title": "世冠赛平台赛决赛美术提需",
+    "content": "处理世冠赛平台赛决赛相关美术提需。",
+    "priority": "critical",
+    "status": "pending",
+    "related_event_slug": "world-championship-platform-finals-design-request",
+    "source_type": "imported",
+    "sort_order": 10
+  },
+  {
+    "check_date": "2025-04-03",
+    "title": "冲钻领卡包活动上线",
+    "content": "确认活动已按计划上线并检查关键配置。",
+    "priority": "critical",
+    "status": "pending",
+    "related_event_slug": "rank-push-card-pack-launch",
+    "source_type": "imported",
+    "sort_order": 20
+  },
+  {
+    "check_date": "2025-04-10",
+    "title": "世冠赛春季平台赛决赛 Day 1",
+    "content": "跟进世冠赛春季平台赛决赛首日执行事项。",
+    "priority": "high",
+    "status": "pending",
+    "related_event_slug": "world-championship-spring-platform-finals",
+    "source_type": "imported",
+    "sort_order": 30
+  },
+  {
+    "check_date": "2025-04-18",
+    "title": "黄金棋坛比赛 Day 1",
+    "content": "跟进黄金棋坛比赛首日执行事项。",
+    "priority": "high",
+    "status": "pending",
+    "related_event_slug": "golden-battlegrounds-tournament",
+    "source_type": "imported",
+    "sort_order": 40
+  }
+]

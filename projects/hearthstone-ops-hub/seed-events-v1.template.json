@@ -1,0 +1,50 @@
+[
+  {
+    "title": "世冠赛平台赛决赛美术提需",
+    "slug": "world-championship-platform-finals-design-request",
+    "type": "milestone",
+    "priority": "critical",
+    "status": "planned",
+    "start_date": "2025-04-01",
+    "end_date": "2025-04-01",
+    "description": "世冠赛平台赛决赛相关美术提需节点。",
+    "source_doc": "网易大神炉石传说社区运营 - 2025年4月工作规划",
+    "sort_order": 10
+  },
+  {
+    "title": "冲钻领卡包活动上线",
+    "slug": "rank-push-card-pack-launch",
+    "type": "campaign",
+    "priority": "critical",
+    "status": "planned",
+    "start_date": "2025-04-03",
+    "end_date": "2025-04-03",
+    "description": "冲钻领卡包活动上线。",
+    "source_doc": "网易大神炉石传说社区运营 - 2025年4月工作规划",
+    "sort_order": 20
+  },
+  {
+    "title": "世冠赛春季平台赛决赛",
+    "slug": "world-championship-spring-platform-finals",
+    "type": "event",
+    "priority": "high",
+    "status": "planned",
+    "start_date": "2025-04-10",
+    "end_date": "2025-04-12",
+    "description": "世冠赛春季平台赛决赛。",
+    "source_doc": "网易大神炉石传说社区运营 - 2025年4月工作规划",
+    "sort_order": 30
+  },
+  {
+    "title": "黄金棋坛比赛",
+    "slug": "golden-battlegrounds-tournament",
+    "type": "event",
+    "priority": "high",
+    "status": "planned",
+    "start_date": "2025-04-18",
+    "end_date": "2025-04-19",
+    "description": "黄金棋坛比赛。",
+    "source_doc": "网易大神炉石传说社区运营 - 2025年4月工作规划",
+    "sort_order": 40
+  }
+]

@@ -13,10 +13,10 @@
 | 阶段 | 状态 | 完成时间 | 备注 |
 |------|------|----------|------|
 | 需求分析 | ✅ 已完成 | 2026-04-01 | 已输出 V1 开发文档 |
-| 方案设计 | 🟨 进行中 | - | 待输出数据库 SQL 与项目拆解 |
-| 开发实施 | ⬜ 待开始 | - | - |
-| 测试验证 | ⬜ 待开始 | - | - |
-| 交付上线 | ⬜ 待开始 | - | - |
+| 方案设计 | ✅ 已完成 | 2026-04-01 | 已输出数据库 schema、导入计划与 seed 模板 |
+| 开发实施 | 🟨 进行中 | - | 已拉取代码仓库并完成 V1 静态骨架调整 |
+| 测试验证 | 🟨 进行中 | - | 已通过本地 production build |
+| 交付上线 | ⬜ 待开始 | - | 待配置环境变量并部署 |
 
 ## 详细记录
 
@@ -25,16 +25,28 @@
 - 创建项目进度文档 `PROGRESS.md`
 - 生成 V1 开发文档 `V1-开发文档.md`
 - 明确 V1 目标：优先做运营日历、每日执行面板、任务管理与上线部署
+- 输出数据库建表脚本：`schema-v1.sql`
+- 输出数据导入计划：`data-import-plan-v1.md`
+- 生成首批 seed 模板：`seed-events-v1.template.json`、`seed-tasks-v1.template.json`、`seed-daily-checklists-v1.template.json`
+- 成功通过 SSH 拉取 GitHub 仓库到 `app/`
+- 已将首页和核心页面骨架调整到 V1 方向：Dashboard / Calendar / Tasks / Events
+- 已补充 Supabase 接入层：`app/lib/supabase.ts`、`app/lib/data.ts`
+- 已补充部署与环境变量文件：`.env.example`、`DEPLOY-V1.md`
+- 已完成 `npm install` 和 `npm run build` 验证，当前骨架可正常构建
 
 ---
 
 ## 待办事项
-- [ ] 输出 V1 数据库 SQL 建表脚本
-- [ ] 梳理 4 月工作规划中的 events seed
-- [ ] 梳理 4 月工作规划中的 tasks seed
-- [ ] 梳理 4 月工作规划中的 daily_checklists seed
-- [ ] 初始化项目仓库本地工作区
-- [ ] 启动前端骨架开发
+- [x] 输出 V1 数据库 SQL 建表脚本
+- [x] 生成 events seed 模板
+- [x] 生成 tasks seed 模板
+- [x] 生成 daily_checklists seed 模板
+- [x] 获取 GitHub 仓库代码并初始化本地工作树
+- [ ] 根据云文档补全真实 seed 数据
+- [x] 启动前端骨架开发
+- [x] 接入 Supabase 环境变量与真实数据读取（含 mock fallback）
+- [ ] 准备首次部署到 Vercel
+- [ ] 增加任务状态更新能力
 
 ## 关键决策
 | 日期 | 决策内容 | 决策原因 |

@@ -1,0 +1,50 @@
+[
+  {
+    "title": "提交世冠赛平台赛决赛美术提需",
+    "event_slug": "world-championship-platform-finals-design-request",
+    "task_type": "design",
+    "priority": "critical",
+    "status": "pending",
+    "task_date": "2025-04-01",
+    "planned_date": "2025-04-01",
+    "due_date": "2025-04-01",
+    "source_type": "imported",
+    "notes": "根据 4 月工作规划执行。"
+  },
+  {
+    "title": "冲钻领卡包活动上线检查",
+    "event_slug": "rank-push-card-pack-launch",
+    "task_type": "launch",
+    "priority": "critical",
+    "status": "pending",
+    "task_date": "2025-04-03",
+    "planned_date": "2025-04-03",
+    "due_date": "2025-04-03",
+    "source_type": "imported",
+    "notes": "上线前确认配置、展示与活动状态。"
+  },
+  {
+    "title": "世冠赛春季平台赛决赛赛程配置",
+    "event_slug": "world-championship-spring-platform-finals",
+    "task_type": "config",
+    "priority": "high",
+    "status": "pending",
+    "task_date": "2025-04-10",
+    "planned_date": "2025-04-08",
+    "due_date": "2025-04-10",
+    "source_type": "imported",
+    "notes": "确保比赛前赛程配置完整。"
+  },
+  {
+    "title": "黄金棋坛比赛执行跟进",
+    "event_slug": "golden-battlegrounds-tournament",
+    "task_type": "ops",
+    "priority": "high",
+    "status": "pending",
+    "task_date": "2025-04-18",
+    "planned_date": "2025-04-17",
+    "due_date": "2025-04-19",
+    "source_type": "imported",
+    "notes": "比赛期间执行与跟进。"
+  }
+]
