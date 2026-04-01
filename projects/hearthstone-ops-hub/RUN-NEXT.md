@@ -11,9 +11,9 @@
 cd /Users/tongyifeng/.openclaw/workspace/projects/hearthstone-ops-hub/app
 ```
 
-### 2. 复制环境变量模板
+### 2. 自动生成环境变量文件
 ```bash
-cp .env.example .env.local
+npm run init:env
 ```
 
 ### 3. 编辑 `.env.local`

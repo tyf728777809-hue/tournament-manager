@@ -59,6 +59,7 @@
 - [x] 补 seed 导入验证 SQL 与 E2E 联调清单
 - [x] 增加 seed SQL 自动生成脚本（按 user_id 生成可执行 SQL）
 - [x] 补下一步执行指南与 next-step 自检脚本
+- [x] 增加 `.env.local` 初始化脚本与占位值检测
 - [ ] 接上真实登录回流与 session 持久化验证
 
 ## 关键决策

@@ -62,6 +62,7 @@
 
 ### 自检命令
 ```bash
+npm run init:env
 npm run check:env
 ```
 
