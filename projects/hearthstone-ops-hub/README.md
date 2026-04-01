@@ -26,6 +26,8 @@
 - `data-import-plan-v1.md`：数据导入策略
 - `supabase-auth-rls-v1.md`：认证 / RLS 落地方案
 - `seed-import-sql-template-v1.sql`：带 `user_id` 的 SQL seed 导入模板
+- `query-current-user-id.sql`：查询当前 Supabase 用户 ID
+- `SEED-RUNBOOK.md`：最小验证集导入与校验步骤
 
 ### Seed 模板
 - `seed-events-v1.template.json`
