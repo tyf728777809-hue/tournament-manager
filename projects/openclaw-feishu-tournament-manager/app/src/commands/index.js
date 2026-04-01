@@ -1,3 +1,7 @@
+import { createBitableClient } from '../bitable/client.js';
+import { checkRegistration } from './check-registration.js';
+import { pauseRolling, resumeRolling } from './pause-rolling.js';
+
 function notImplemented(name) {
   return async (payload = {}) => ({
     ok: false,
@@ -8,17 +12,24 @@ function notImplemented(name) {
 }
 
 export function createCommandRouter({ context }) {
+  const bitable = createBitableClient({
+    appToken: context.appToken,
+    tables: context.tables,
+    context
+  });
+
   const handlers = {
-    '/检查注册': notImplemented('/检查注册'),
+    '/检查注册': (payload) => checkRegistration({ context, bitable, payload }),
     '/公示卡组': notImplemented('/公示卡组'),
-    '/暂停顺延': notImplemented('/暂停顺延'),
-    '/恢复顺延': notImplemented('/恢复顺延'),
+    '/暂停顺延': (payload) => pauseRolling({ context, bitable, payload }),
+    '/恢复顺延': (payload) => resumeRolling({ context, bitable, payload }),
     '/手动签到': notImplemented('/手动签到'),
     '/重发战报': notImplemented('/重发战报')
   };
 
   return {
     context,
+    bitable,
     list() {
       return Object.keys(handlers);
     },
