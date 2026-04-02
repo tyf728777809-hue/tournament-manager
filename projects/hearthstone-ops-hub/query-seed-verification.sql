@@ -1,3 +1,5 @@
+-- [历史留档] 旧版 seed 验证 SQL，面向 public.events / public.tasks / public.daily_checklists
+-- 当前联调请改用：query-seed-verification-hs.sql
 -- Seed 导入后的快速验证 SQL
 
 -- 1) events

@@ -1,3 +1,6 @@
+-- [历史留档] 旧版 seed 模板，面向 public.events / public.tasks / public.daily_checklists
+-- 当前联调请优先改用：node scripts/generate-seed-sql.mjs <SUPABASE_USER_ID>
+-- 生成结果默认写入 seed-import.generated.sql（对应 hs_ 并行表方案）
 -- Hearthstone Ops Hub V1 Seed Import Template
 -- 使用前请先把下面的 user_id 替换成你自己的 Supabase auth.users.id
 

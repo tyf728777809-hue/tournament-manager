@@ -1,3 +1,6 @@
+-- [历史留档] 旧版 V1 schema，基于 public.events / public.tasks / public.daily_checklists
+-- 当前联调请改用：schema-hs-v1.sql
+-- 本文件仅供参考，不作为当前真实联调入口
 -- Hearthstone Ops Hub V1 Schema
 -- Target: Supabase Postgres
 -- Created: 2026-04-01

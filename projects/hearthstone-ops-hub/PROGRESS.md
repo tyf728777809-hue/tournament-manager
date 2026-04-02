@@ -3,7 +3,7 @@
 ## 项目信息
 - **项目名称**: Hearthstone Ops Hub
 - **创建时间**: 2026-04-01 21:03 (Asia/Shanghai)
-- **最后更新**: 2026-04-02 13:56 (Asia/Shanghai)
+- **最后更新**: 2026-04-02 14:57 (Asia/Shanghai)
 
 ## 项目目标
 构建一个面向炉石社区运营场景的轻量工作台，先完成 V1：支持赛事 / 活动管理、每日待办管理、日历视图、今日执行面板，并部署上线供日常使用。
@@ -43,6 +43,12 @@
 - 已新增 `DEPLOY-HANDOFF.md`，用于回家后按正式入口 / Redirect allowlist 路线继续验收闭环
 - 已在 `/auth` 与 `/setup` 页面新增站点来源提示卡：直接展示当前 origin、建议加入 Supabase Redirect allowlist 的 `/auth` 地址，并对临时/默认托管域名给出提示
 - 已重新执行 production build 验证上述页面改动，构建通过
+- 已继续清理剩余旧联调说法：`README.md`、`SEED-RUNBOOK.md`、`app/WORKLOG-AUTH-SETUP.md`、`app/app/setup/connection-debug.tsx` 已统一改到当前 `hs_` 并行表方案
+- 已再次执行 production build 验证文档/提示文案清理后的代码状态，构建通过
+- 已将后续遗留的 setup 文档/提示清理提交并推送到 app 仓库：`f7a42a1 align setup docs with hs tables`
+- 已给旧方案文件补充“历史留档 / 非当前联调入口”边界说明：`schema-v1.sql`、`query-seed-verification.sql`、`seed-import-sql-template-v1.sql`
+- 已新增 `TONIGHT-CHECKLIST.md`，用于今晚在家里电脑以 `localhost:3000` 路线做最短联调闭环
+- 已对当前文档/边界/提示类改动做最后一轮 production build 收尾验证，构建通过
 
 ### 2026-04-01 - 项目启动
 - 创建项目工作区：`projects/hearthstone-ops-hub/`
