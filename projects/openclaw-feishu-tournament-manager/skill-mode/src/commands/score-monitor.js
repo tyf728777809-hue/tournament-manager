@@ -4,6 +4,8 @@
 
 import { TABLES, APP_TOKEN, TOURNAMENT_ID, CHAT_ID } from '../config/tables.js';
 import { sendCheckinText } from '../messaging/checkin-text.js';
+import { debouncedScoreUpdate } from '../utils/debounce.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * 归一化富文本字段
@@ -16,10 +18,22 @@ function normalizeField(value) {
 }
 
 /**
- * 检查比分变化并触发顺延
+ * 检查比分变化并触发顺延（带防抖）
  * @param {Object} params - { matchId, newScoreA, newScoreB }
  */
 export async function checkScoreAndTriggerRolling({ matchId, newScoreA, newScoreB }) {
+  // 使用防抖机制，5秒内多次更新只处理最后一次
+  return debouncedScoreUpdate(TOURNAMENT_ID, matchId, async () => {
+    return await doCheckScoreAndTriggerRolling({ matchId, newScoreA, newScoreB });
+  });
+}
+
+/**
+ * 实际执行比分检查和顺延触发
+ */
+async function doCheckScoreAndTriggerRolling({ matchId, newScoreA, newScoreB }) {
+  logger.info('score-monitor', '执行比分检查和顺延触发', { matchId, newScoreA, newScoreB });
+  
   // 1. 查询当前场次
   const matchResult = await feishu_bitable_app_table_record({
     action: 'list',
