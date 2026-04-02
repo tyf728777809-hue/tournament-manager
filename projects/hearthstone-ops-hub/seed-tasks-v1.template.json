@@ -12,6 +12,18 @@
     "notes": "根据 4 月工作规划执行。"
   },
   {
+    "title": "确认世冠赛平台赛决赛素材交付时间",
+    "event_slug": "world-championship-platform-finals-design-request",
+    "task_type": "review",
+    "priority": "critical",
+    "status": "pending",
+    "task_date": "2025-04-01",
+    "planned_date": "2025-04-01",
+    "due_date": "2025-04-01",
+    "source_type": "imported",
+    "notes": "补确认素材交付节点，避免影响后续平台赛宣发。"
+  },
+  {
     "title": "冲钻领卡包活动上线检查",
     "event_slug": "rank-push-card-pack-launch",
     "task_type": "launch",
@@ -22,6 +34,18 @@
     "due_date": "2025-04-03",
     "source_type": "imported",
     "notes": "上线前确认配置、展示与活动状态。"
+  },
+  {
+    "title": "核对冲钻领卡包活动奖励配置",
+    "event_slug": "rank-push-card-pack-launch",
+    "task_type": "config",
+    "priority": "critical",
+    "status": "pending",
+    "task_date": "2025-04-03",
+    "planned_date": "2025-04-02",
+    "due_date": "2025-04-03",
+    "source_type": "imported",
+    "notes": "重点确认奖励、展示文案和活动入口配置。"
   },
   {
     "title": "世冠赛春季平台赛决赛赛程配置",
@@ -36,6 +60,42 @@
     "notes": "确保比赛前赛程配置完整。"
   },
   {
+    "title": "世冠赛春季平台赛决赛直播链路确认",
+    "event_slug": "world-championship-spring-platform-finals",
+    "task_type": "ops",
+    "priority": "high",
+    "status": "pending",
+    "task_date": "2025-04-09",
+    "planned_date": "2025-04-08",
+    "due_date": "2025-04-09",
+    "source_type": "imported",
+    "notes": "在比赛前确认直播链路、后台配置和协作同学分工。"
+  },
+  {
+    "title": "世冠赛春季平台赛决赛 Day 1 执行跟进",
+    "event_slug": "world-championship-spring-platform-finals",
+    "task_type": "ops",
+    "priority": "high",
+    "status": "pending",
+    "task_date": "2025-04-10",
+    "planned_date": "2025-04-10",
+    "due_date": "2025-04-10",
+    "source_type": "imported",
+    "notes": "首日重点盯执行节奏、直播表现和临场问题。"
+  },
+  {
+    "title": "世冠赛春季平台赛决赛赛后复盘整理",
+    "event_slug": "world-championship-spring-platform-finals",
+    "task_type": "data",
+    "priority": "high",
+    "status": "pending",
+    "task_date": "2025-04-13",
+    "planned_date": "2025-04-12",
+    "due_date": "2025-04-14",
+    "source_type": "imported",
+    "notes": "赛后沉淀执行问题、数据表现与复盘结论。"
+  },
+  {
     "title": "黄金棋坛比赛执行跟进",
     "event_slug": "golden-battlegrounds-tournament",
     "task_type": "ops",
@@ -46,5 +106,29 @@
     "due_date": "2025-04-19",
     "source_type": "imported",
     "notes": "比赛期间执行与跟进。"
+  },
+  {
+    "title": "黄金棋坛比赛赛前配置巡检",
+    "event_slug": "golden-battlegrounds-tournament",
+    "task_type": "review",
+    "priority": "high",
+    "status": "pending",
+    "task_date": "2025-04-17",
+    "planned_date": "2025-04-17",
+    "due_date": "2025-04-17",
+    "source_type": "imported",
+    "notes": "赛前统一检查赛程、直播链路与活动配置。"
+  },
+  {
+    "title": "黄金棋坛比赛数据复盘",
+    "event_slug": "golden-battlegrounds-tournament",
+    "task_type": "data",
+    "priority": "medium",
+    "status": "pending",
+    "task_date": "2025-04-20",
+    "planned_date": "2025-04-19",
+    "due_date": "2025-04-21",
+    "source_type": "imported",
+    "notes": "整理比赛核心数据，为后续内容沉淀和复用提供依据。"
   }
 ]

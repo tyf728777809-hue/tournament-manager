@@ -10,6 +10,16 @@
     "sort_order": 10
   },
   {
+    "check_date": "2025-04-01",
+    "title": "确认素材交付时间",
+    "content": "确认平台赛决赛相关素材的交付时间与负责人。",
+    "priority": "critical",
+    "status": "pending",
+    "related_event_slug": "world-championship-platform-finals-design-request",
+    "source_type": "imported",
+    "sort_order": 20
+  },
+  {
     "check_date": "2025-04-03",
     "title": "冲钻领卡包活动上线",
     "content": "确认活动已按计划上线并检查关键配置。",
@@ -17,7 +27,27 @@
     "status": "pending",
     "related_event_slug": "rank-push-card-pack-launch",
     "source_type": "imported",
-    "sort_order": 20
+    "sort_order": 30
+  },
+  {
+    "check_date": "2025-04-03",
+    "title": "核对活动展示与奖励配置",
+    "content": "检查活动入口、展示文案与奖励配置是否一致。",
+    "priority": "critical",
+    "status": "pending",
+    "related_event_slug": "rank-push-card-pack-launch",
+    "source_type": "imported",
+    "sort_order": 40
+  },
+  {
+    "check_date": "2025-04-09",
+    "title": "世冠赛春季平台赛决赛赛前准备",
+    "content": "确认赛程、直播链路与后台配置。",
+    "priority": "high",
+    "status": "pending",
+    "related_event_slug": "world-championship-spring-platform-finals",
+    "source_type": "imported",
+    "sort_order": 50
   },
   {
     "check_date": "2025-04-10",
@@ -27,7 +57,27 @@
     "status": "pending",
     "related_event_slug": "world-championship-spring-platform-finals",
     "source_type": "imported",
-    "sort_order": 30
+    "sort_order": 60
+  },
+  {
+    "check_date": "2025-04-11",
+    "title": "世冠赛春季平台赛决赛 Day 2",
+    "content": "继续跟进赛程进度、直播表现与临场问题。",
+    "priority": "high",
+    "status": "pending",
+    "related_event_slug": "world-championship-spring-platform-finals",
+    "source_type": "imported",
+    "sort_order": 70
+  },
+  {
+    "check_date": "2025-04-12",
+    "title": "世冠赛春季平台赛决赛收口",
+    "content": "确认比赛收尾、结果同步与赛后内容准备。",
+    "priority": "high",
+    "status": "pending",
+    "related_event_slug": "world-championship-spring-platform-finals",
+    "source_type": "imported",
+    "sort_order": 80
   },
   {
     "check_date": "2025-04-18",
@@ -37,6 +87,26 @@
     "status": "pending",
     "related_event_slug": "golden-battlegrounds-tournament",
     "source_type": "imported",
-    "sort_order": 40
+    "sort_order": 90
+  },
+  {
+    "check_date": "2025-04-19",
+    "title": "黄金棋坛比赛 Day 2",
+    "content": "跟进比赛次日执行与赛后收口准备。",
+    "priority": "high",
+    "status": "pending",
+    "related_event_slug": "golden-battlegrounds-tournament",
+    "source_type": "imported",
+    "sort_order": 100
+  },
+  {
+    "check_date": "2025-04-20",
+    "title": "黄金棋坛比赛数据复盘",
+    "content": "整理比赛数据与执行复盘结论。",
+    "priority": "medium",
+    "status": "pending",
+    "related_event_slug": "golden-battlegrounds-tournament",
+    "source_type": "imported",
+    "sort_order": 110
   }
 ]

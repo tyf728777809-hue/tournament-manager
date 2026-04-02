@@ -36,6 +36,18 @@
     "sort_order": 30
   },
   {
+    "title": "世冠赛春季平台赛决赛赛后复盘",
+    "slug": "world-championship-spring-platform-finals-retro",
+    "type": "milestone",
+    "priority": "high",
+    "status": "planned",
+    "start_date": "2025-04-13",
+    "end_date": "2025-04-14",
+    "description": "围绕世冠赛春季平台赛决赛的赛后复盘与执行收口。",
+    "source_doc": "基于 4 月工作规划拆解补充",
+    "sort_order": 40
+  },
+  {
     "title": "黄金棋坛比赛",
     "slug": "golden-battlegrounds-tournament",
     "type": "event",
@@ -45,6 +57,18 @@
     "end_date": "2025-04-19",
     "description": "黄金棋坛比赛。",
     "source_doc": "网易大神炉石传说社区运营 - 2025年4月工作规划",
-    "sort_order": 40
+    "sort_order": 50
+  },
+  {
+    "title": "黄金棋坛比赛赛后复盘",
+    "slug": "golden-battlegrounds-tournament-retro",
+    "type": "milestone",
+    "priority": "medium",
+    "status": "planned",
+    "start_date": "2025-04-20",
+    "end_date": "2025-04-21",
+    "description": "黄金棋坛比赛后的数据复盘、经验沉淀与结案收口。",
+    "source_doc": "基于 4 月工作规划拆解补充",
+    "sort_order": 60
   }
 ]

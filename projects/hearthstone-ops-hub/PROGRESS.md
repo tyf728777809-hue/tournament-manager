@@ -3,7 +3,7 @@
 ## 项目信息
 - **项目名称**: Hearthstone Ops Hub
 - **创建时间**: 2026-04-01 21:03 (Asia/Shanghai)
-- **最后更新**: 2026-04-02 14:57 (Asia/Shanghai)
+- **最后更新**: 2026-04-02 15:15 (Asia/Shanghai)
 
 ## 项目目标
 构建一个面向炉石社区运营场景的轻量工作台，先完成 V1：支持赛事 / 活动管理、每日待办管理、日历视图、今日执行面板，并部署上线供日常使用。
@@ -49,6 +49,9 @@
 - 已给旧方案文件补充“历史留档 / 非当前联调入口”边界说明：`schema-v1.sql`、`query-seed-verification.sql`、`seed-import-sql-template-v1.sql`
 - 已新增 `TONIGHT-CHECKLIST.md`，用于今晚在家里电脑以 `localhost:3000` 路线做最短联调闭环
 - 已对当前文档/边界/提示类改动做最后一轮 production build 收尾验证，构建通过
+- 已扩充 seed 模板：`seed-events-v1.template.json`、`seed-tasks-v1.template.json` 与 `seed-daily-checklists-v1.template.json`，从“最小验证集”提升为更接近可日用的 4 月关键节点执行样本
+- 已优化 `/tasks` 页体验：新增搜索、快捷视图（全部 / 未完成 / 极高优先级 / 只看逾期）、按关联活动筛选、筛选结果计数、空状态提示、排序（任务日期 / 截止日期 / 优先级）与一键重置筛选
+- 已执行 production build 验证上述 seed / tasks 体验改动，构建通过
 
 ### 2026-04-01 - 项目启动
 - 创建项目工作区：`projects/hearthstone-ops-hub/`
