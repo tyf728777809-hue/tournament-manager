@@ -44,8 +44,8 @@ sql.push(`-- user_id: ${userId}`)
 sql.push('begin;')
 sql.push('')
 
-sql.push('-- 1) events')
-sql.push('insert into public.events (user_id, title, slug, type, priority, status, start_date, end_date, description, source_doc, sort_order) values')
+sql.push('-- 1) hs_events')
+sql.push('insert into public.hs_events (user_id, title, slug, type, priority, status, start_date, end_date, description, source_doc, sort_order) values')
 sql.push(
   events
     .map(
@@ -56,8 +56,8 @@ sql.push(
 )
 sql.push('')
 
-sql.push('-- 2) tasks')
-sql.push(`insert into public.tasks (user_id, event_id, title, task_type, priority, status, task_date, planned_date, due_date, source_type, notes)
+sql.push('-- 2) hs_tasks')
+sql.push(`insert into public.hs_tasks (user_id, event_id, title, task_type, priority, status, task_date, planned_date, due_date, source_type, notes)
 select
   ${q(userId)},
   e.id,
@@ -80,13 +80,13 @@ sql.push(
     .join(',\n'),
 )
 sql.push(`) as v(event_slug, title, task_type, priority, status, task_date, planned_date, due_date, source_type, notes)
-left join public.events e
+left join public.hs_events e
   on e.slug = v.event_slug
  and e.user_id = ${q(userId)};`)
 sql.push('')
 
-sql.push('-- 3) daily_checklists')
-sql.push(`insert into public.daily_checklists (user_id, related_event_id, check_date, title, content, priority, status, source_type, sort_order)
+sql.push('-- 3) hs_daily_checklists')
+sql.push(`insert into public.hs_daily_checklists (user_id, related_event_id, check_date, title, content, priority, status, source_type, sort_order)
 select
   ${q(userId)},
   e.id,
@@ -107,7 +107,7 @@ sql.push(
     .join(',\n'),
 )
 sql.push(`) as v(related_event_slug, check_date, title, content, priority, status, source_type, sort_order)
-left join public.events e
+left join public.hs_events e
   on e.slug = v.related_event_slug
  and e.user_id = ${q(userId)};`)
 sql.push('')

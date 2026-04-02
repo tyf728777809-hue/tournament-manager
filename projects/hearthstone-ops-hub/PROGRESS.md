@@ -3,7 +3,7 @@
 ## 项目信息
 - **项目名称**: Hearthstone Ops Hub
 - **创建时间**: 2026-04-01 21:03 (Asia/Shanghai)
-- **最后更新**: 2026-04-01 21:03 (Asia/Shanghai)
+- **最后更新**: 2026-04-02 10:56 (Asia/Shanghai)
 
 ## 项目目标
 构建一个面向炉石社区运营场景的轻量工作台，先完成 V1：支持赛事 / 活动管理、每日待办管理、日历视图、今日执行面板，并部署上线供日常使用。
@@ -19,6 +19,15 @@
 | 交付上线 | ⬜ 待开始 | - | 待配置环境变量并部署 |
 
 ## 详细记录
+
+### 2026-04-02 - Supabase 真实联调转向 hs_ 并行表
+- 已确认真实 Supabase anon key 并完成 `.env.local` 配置
+- 已跑通 Magic Link 用户创建，当前联调 user_id：`b7fc22a7-de54-4621-b1df-cf526cf11d3c`
+- 已确认旧 `public.tasks` / `public.profiles` 是另一版空壳模型：0 行数据，且 `tasks.project_id -> projects.id`
+- 为避免破坏旧模型，已新建并落地并行方案：`hs_profiles` / `hs_events` / `hs_tasks` / `hs_daily_checklists`
+- 已新增 `schema-hs-v1.sql`、`query-seed-verification-hs.sql`
+- 已把前端真实读写和健康检查切到 `hs_` 前缀表
+- 已把 seed 生成脚本切到 `hs_` 前缀表，待在 Supabase 执行 schema 与 seed
 
 ### 2026-04-01 - 项目启动
 - 创建项目工作区：`projects/hearthstone-ops-hub/`
@@ -61,6 +70,13 @@
 - [x] 补下一步执行指南与 next-step 自检脚本
 - [x] 增加 `.env.local` 初始化脚本与占位值检测
 - [ ] 接上真实登录回流与 session 持久化验证
+- [x] 定位 Supabase 旧表冲突来源（旧 `tasks/project_id` 空壳模型）
+- [x] 设计并切换到 `hs_` 前缀并行 V1 表方案（保留旧表）
+- [x] 生成 `schema-hs-v1.sql` / `query-seed-verification-hs.sql`
+- [x] 前端读写切到 `hs_events` / `hs_tasks` / `hs_daily_checklists`
+- [ ] 在 Supabase 执行 `schema-hs-v1.sql`
+- [ ] 导入 `hs_` 前缀最小验证 seed
+- [ ] 完成 `/setup` 与 `/tasks` 基于 `hs_` 表的真实联调
 
 ## 关键决策
 | 日期 | 决策内容 | 决策原因 |
