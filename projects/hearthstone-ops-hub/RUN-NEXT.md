@@ -74,7 +74,7 @@ node scripts/generate-seed-sql.mjs 12345678-aaaa-bbbb-cccc-1234567890ab
 
 ### 4. 验证导入结果
 执行：
-- `query-seed-verification.sql`
+- `query-seed-verification-hs.sql`
 
 ---
 
@@ -86,12 +86,13 @@ node scripts/generate-seed-sql.mjs 12345678-aaaa-bbbb-cccc-1234567890ab
 动作：
 1. 打开 `/tasks`
 2. 随便切换一条任务状态
-3. 回 Supabase 看 `public.tasks.status` 是否真的变化
+3. 回 Supabase 看 `public.hs_tasks.status` 是否真的变化
 
 如果变化了，说明：
 - 登录态通了
 - RLS 通了
 - 前端真实写回通了
+- 当前 `hs_` 并行表方案已经闭环
 
 ---
 

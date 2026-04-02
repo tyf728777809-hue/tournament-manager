@@ -3,7 +3,7 @@
 ## 项目信息
 - **项目名称**: Hearthstone Ops Hub
 - **创建时间**: 2026-04-01 21:03 (Asia/Shanghai)
-- **最后更新**: 2026-04-02 10:56 (Asia/Shanghai)
+- **最后更新**: 2026-04-02 13:56 (Asia/Shanghai)
 
 ## 项目目标
 构建一个面向炉石社区运营场景的轻量工作台，先完成 V1：支持赛事 / 活动管理、每日待办管理、日历视图、今日执行面板，并部署上线供日常使用。
@@ -31,6 +31,19 @@
 - 已在 Supabase 成功执行 `schema-hs-v1.sql`
 - 已在 Supabase 成功导入 `hs_` 最小验证集，当前聚合结果：`event_count=4 / task_count=4 / daily_count=4`
 
+### 2026-04-02 - 部署与公网入口排查补记
+- 已确认 Vercel 公网地址 `https://app-black-ten-50.vercel.app` 在我侧可访问，但用户侧多设备反馈 `ERR_CONNECTION_CLOSED`
+- 已确认当前阻塞已从“代码/数据库问题”转为“公网入口可达性问题”
+- 已重新执行本地 production build，结果成功，确认当前静态导出可正常产出
+- 已把 Hearthstone Ops Hub 本地最新 7 个提交推送到 GitHub `main`，远端分支已追上当前联调代码状态
+- 已尝试多种临时公网入口（localtunnel / pinggy / serveo / localhost.run）作为应急绕路
+- 当前结论：临时隧道可用于页面可达性探测，但不适合作为正式 Magic Link 登录回流入口；正式闭环仍需要“用户可访问 + 已加入 Supabase Redirect allowlist”的稳定域名
+- 经用户确认，当前先不继续死磕入口问题，暂时挂起该阻塞，后续回到更合适的网络环境再处理
+- 已把联调文档切到当前真实状态：`RUN-NEXT.md`、`E2E-CHECKLIST.md`、`app/LOCAL-SETUP.md` 已统一改为 `hs_` 前缀表与 `query-seed-verification-hs.sql`
+- 已新增 `DEPLOY-HANDOFF.md`，用于回家后按正式入口 / Redirect allowlist 路线继续验收闭环
+- 已在 `/auth` 与 `/setup` 页面新增站点来源提示卡：直接展示当前 origin、建议加入 Supabase Redirect allowlist 的 `/auth` 地址，并对临时/默认托管域名给出提示
+- 已重新执行 production build 验证上述页面改动，构建通过
+
 ### 2026-04-01 - 项目启动
 - 创建项目工作区：`projects/hearthstone-ops-hub/`
 - 创建项目进度文档 `PROGRESS.md`
@@ -56,7 +69,7 @@
 - [ ] 根据云文档补全真实 seed 数据
 - [x] 启动前端骨架开发
 - [x] 接入 Supabase 环境变量与真实数据读取（含 mock fallback）
-- [ ] 准备首次部署到 Vercel
+- [x] 准备首次部署到 Vercel
 - [x] 增加任务状态更新能力（支持前端交互与 Supabase 直连尝试写回）
 - [x] 补 Supabase Auth / RLS 方案文档
 - [x] 生成带 user_id 的 SQL seed 导入模板

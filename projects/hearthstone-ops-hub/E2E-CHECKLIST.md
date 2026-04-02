@@ -26,14 +26,14 @@
 
 ## 阶段 4：seed 导入
 - [ ] 执行 `query-current-user-id.sql`
-- [ ] 已将真实 user_id 替换进 `seed-import-sql-template-v1.sql`
+- [ ] 已运行 `node scripts/generate-seed-sql.mjs <SUPABASE_USER_ID>` 生成 `seed-import.generated.sql`
 - [ ] 已导入最小验证集 seed
-- [ ] 执行 `query-seed-verification.sql` 检查通过
+- [ ] 执行 `query-seed-verification-hs.sql` 检查通过
 
 ## 阶段 5：真实写回
 - [ ] `/tasks` 页面能看到真实任务
 - [ ] 切换一个任务状态
-- [ ] Supabase `public.tasks.status` 已变化
+- [ ] Supabase `public.hs_tasks.status` 已变化
 - [ ] 状态切换后前端不再自动回退
 
 ---
