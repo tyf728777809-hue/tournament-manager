@@ -27,7 +27,9 @@
 - 为避免破坏旧模型，已新建并落地并行方案：`hs_profiles` / `hs_events` / `hs_tasks` / `hs_daily_checklists`
 - 已新增 `schema-hs-v1.sql`、`query-seed-verification-hs.sql`
 - 已把前端真实读写和健康检查切到 `hs_` 前缀表
-- 已把 seed 生成脚本切到 `hs_` 前缀表，待在 Supabase 执行 schema 与 seed
+- 已把 seed 生成脚本切到 `hs_` 前缀表
+- 已在 Supabase 成功执行 `schema-hs-v1.sql`
+- 已在 Supabase 成功导入 `hs_` 最小验证集，当前聚合结果：`event_count=4 / task_count=4 / daily_count=4`
 
 ### 2026-04-01 - 项目启动
 - 创建项目工作区：`projects/hearthstone-ops-hub/`
@@ -74,8 +76,8 @@
 - [x] 设计并切换到 `hs_` 前缀并行 V1 表方案（保留旧表）
 - [x] 生成 `schema-hs-v1.sql` / `query-seed-verification-hs.sql`
 - [x] 前端读写切到 `hs_events` / `hs_tasks` / `hs_daily_checklists`
-- [ ] 在 Supabase 执行 `schema-hs-v1.sql`
-- [ ] 导入 `hs_` 前缀最小验证 seed
+- [x] 在 Supabase 执行 `schema-hs-v1.sql`
+- [x] 导入 `hs_` 前缀最小验证 seed
 - [ ] 完成 `/setup` 与 `/tasks` 基于 `hs_` 表的真实联调
 
 ## 关键决策
